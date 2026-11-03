@@ -169,8 +169,8 @@
           <input
             id="cfg-supabase-url"
             type="url"
-            placeholder="https://xyzcompany.supabase.co"
-            class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500"
+            placeholder="https://zxjwllvykzxmdvkcdwix.supabase.co"
+            class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 font-mono text-[11px]"
           />
           <p class="text-[10px] text-slate-400 mt-1">Found in your Supabase Dashboard under Project Settings &gt; API</p>
         </div>
@@ -180,7 +180,7 @@
           <input
             id="cfg-supabase-key"
             type="password"
-            placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            placeholder="sb_publishable_Ch6lIX6ZSbulVuA7pM6eNg_x8klP4hO"
             class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 font-mono text-[11px]"
           />
           <p class="text-[10px] text-slate-400 mt-1">Safe for browser use. Protects endpoints via Row Level Security (RLS).</p>
@@ -192,7 +192,7 @@
         </div>
 
         <div class="pt-2 flex justify-between items-center">
-          <button type="button" onclick="handleClearSupabaseConfig()" class="text-rose-500 hover:text-rose-700 font-bold text-xs">Clear Credentials</button>
+          <button type="button" onclick="handleClearSupabaseConfig()" class="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-bold text-xs" title="Reset to integrated online Supabase project">Reset to Default</button>
           <div class="flex gap-2">
             <button type="button" onclick="closeSupabaseModal()" class="px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl font-bold text-slate-600 dark:text-slate-300">Cancel</button>
             <button type="submit" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-md shadow-emerald-500/25">Save & Connect</button>
@@ -231,7 +231,10 @@
               <span>📋 Copy SQL</span>
             </button>
           </div>
-          <pre id="rls-sql-code" class="p-3 bg-slate-900 text-slate-100 rounded-xl font-mono text-[11px] overflow-x-auto border border-slate-800 select-all leading-relaxed">-- Enable RLS and grant full read/write/upsert access to staff
+          <pre id="rls-sql-code" class="p-3 bg-slate-900 text-slate-100 rounded-xl font-mono text-[11px] overflow-x-auto border border-slate-800 select-all leading-relaxed">-- 1. Grant table privileges to anon and authenticated roles
+GRANT ALL ON TABLE public.staff TO anon, authenticated, service_role;
+
+-- 2. Enable RLS and grant full read/write/upsert policy
 ALTER TABLE public.staff ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow read access to staff" ON public.staff;
 DROP POLICY IF EXISTS "Allow manager write access to staff" ON public.staff;
@@ -1065,9 +1068,9 @@ CREATE POLICY "Allow all operations on staff" ON public.staff
     }
 
     function handleClearSupabaseConfig() {
-      window.fasrSupabase.setCredentials('', '');
+      window.fasrSupabase.resetToDefaultCredentials();
       closeSupabaseModal();
-      window.showToast("Supabase configuration cleared. Running in Demo mode.", "info");
+      window.showToast("Reset to default online Supabase project.", "info");
       updateSupabaseStatusBadges();
     }
 
@@ -1153,8 +1156,8 @@ CREATE POLICY "Allow all operations on staff" ON public.staff
         console.error("Staff sync error details:", res);
 
         const lowerMsg = String(errMsg).toLowerCase();
-        if (lowerMsg.includes("row-level security") || lowerMsg.includes("policy") || res?.code === "42501") {
-          window.showToast("⚠️ Blocked by Row Level Security policy. Opening SQL fix...", "error", 6000);
+        if (lowerMsg.includes("row-level security") || lowerMsg.includes("policy") || lowerMsg.includes("permission denied") || res?.code === "42501") {
+          window.showToast("⚠️ Permission or RLS policy needed. Opening SQL fix...", "error", 6000);
           openRlsModal();
         } else if (lowerMsg.includes("does not exist") || res?.code === "42P01") {
           window.showToast("⚠️ Table 'staff' does not exist in Supabase! Please run supabase_schema.sql.", "error", 8000);
