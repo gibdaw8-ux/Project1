@@ -3,2040 +3,249 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Fasr orders — Manager Command Center</title>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📊</text></svg>">
-
-  <!-- Tailwind CSS CDN -->
+  <title>Manager Control Center | Fasr Restaurant</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'media',
-      theme: {
-        extend: {
-          colors: {
-            brand: {
-              50: '#f0f5ff',
-              100: '#e0ebff',
-              200: '#c7dafe',
-              500: '#3b82f6',
-              600: '#2563eb',
-              700: '#1d4ed8',
-            }
-          }
-        }
-      }
-    }
-  </script>
-
-  <!-- Google Fonts, Lucide Icons, MQTT CDN -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-
-  <style>
-    body {
-      font-family: 'Plus Jakarta Sans', sans-serif;
-    }
-    ::-webkit-scrollbar {
-      width: 5px;
-      height: 5px;
-    }
-    ::-webkit-scrollbar-thumb {
-      background: #cbd5e1;
-      border-radius: 9999px;
-    }
-    @media (prefers-color-scheme: dark) {
-      ::-webkit-scrollbar-thumb {
-        background: #334155;
-      }
-    }
-  </style>
-</head>
-<body class="bg-slate-100 text-slate-800 dark:bg-slate-950 dark:text-slate-100 h-screen w-screen overflow-hidden select-none transition-colors duration-200">
-
-  <!-- Supabase Client & Shared Sync Engine -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
   <script src="sync.js"></script>
-  <script src="supabase.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 antialiased min-h-screen flex flex-col">
 
-  <!-- ============================================================== -->
-  <!-- LOGIN GATE (Supabase Auth / Email + Password)                  -->
-  <!-- ============================================================== -->
-  <div id="login-gate" class="fixed inset-0 z-50 bg-slate-900/95 dark:bg-black/95 backdrop-blur-md flex items-center justify-center p-4">
-    <div class="bg-white dark:bg-slate-900 rounded-3xl p-8 max-w-sm w-full border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4 text-center">
-      <div class="w-12 h-12 rounded-2xl bg-brand-600 text-white flex items-center justify-center mx-auto shadow-md shadow-brand-500/30">
-        <i data-lucide="shield-check" class="w-6 h-6"></i>
-      </div>
+  <!-- Top Nav -->
+  <header class="border-b border-slate-800 bg-slate-900/50 backdrop-blur-md px-6 py-4 flex items-center justify-between shrink-0">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-2xl bg-orange-600 text-white flex items-center justify-center font-black text-xl">M</div>
       <div>
-        <h2 class="text-xl font-extrabold text-slate-900 dark:text-white">Manager Portal</h2>
-        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Fasr Kitchen & Bar Command Center</p>
+        <h1 class="text-sm font-extrabold text-white tracking-tight">Executive Management</h1>
+        <p class="text-xs text-slate-400">Fasr Kitchen & Bar Addis</p>
       </div>
-
-      <!-- Supabase Connection Status Pill -->
-      <div id="supabase-auth-badge" class="py-1 px-3 rounded-xl text-[11px] font-bold flex items-center justify-between border bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800">
-        <span class="flex items-center gap-1.5">
-          <span id="supabase-status-dot" class="w-2 h-2 rounded-full bg-emerald-500"></span>
-          <span id="supabase-status-label">Supabase Auth</span>
-        </span>
-        <button type="button" onclick="openSupabaseModal()" class="text-brand-600 dark:text-brand-400 font-extrabold hover:underline">Config ⚙</button>
+    </div>
+    <div class="flex items-center gap-4">
+      <div class="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-2xl border border-slate-700">
+        <span class="text-xs font-bold text-slate-300">Terminal Lock</span>
+        <button id="manager-lock-toggle" onclick="toggleRemoteLock()" class="px-2.5 py-1 text-[11px] font-black rounded-xl bg-slate-700 text-slate-300 uppercase transition-all">Disabled</button>
       </div>
+      <button onclick="window.fasrSync.logout()" class="text-xs font-bold text-rose-400 hover:underline">Sign Out</button>
+    </div>
+  </header>
 
-      <!-- Mode Selector (Sign In vs Sign Up) -->
-      <div class="grid grid-cols-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-bold">
-        <button id="auth-mode-signin" type="button" onclick="setAuthMode(false)" class="py-1.5 rounded-lg bg-white dark:bg-slate-700 text-brand-600 dark:text-brand-300 shadow-xs">Sign In</button>
-        <button id="auth-mode-signup" type="button" onclick="setAuthMode(true)" class="py-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-white">Sign Up</button>
-      </div>
-
-      <!-- Dynamic Alert Container (Email Confirmation / Errors) -->
-      <div id="login-alert-box" class="hidden p-3 rounded-xl text-[11px] text-left space-y-1 transition-all"></div>
-
-      <!-- Dev / Testing Notice for Sign Up -->
-      <div id="signup-dev-tip" class="hidden text-[10px] text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 p-2.5 rounded-xl border border-amber-200 dark:border-amber-800 text-left space-y-1">
-        <div class="flex items-center gap-1 font-bold">
-          <i data-lucide="info" class="w-3.5 h-3.5 shrink-0"></i>
-          <span>Local Dev Auto-Confirm Tip:</span>
-        </div>
-        <p>In Supabase Dashboard → <em>Authentication → Providers → Email</em>, toggle <strong>"Confirm email" OFF</strong> to test password sign-ins instantly without waiting for an email verification link.</p>
-      </div>
-
-      <form onsubmit="handleManagerLogin(event)" class="space-y-3 text-left">
-        <div id="signup-name-field" class="hidden">
-          <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1">Full Name</label>
-          <input
-            id="login-name"
-            type="text"
-            placeholder="e.g. Dawit Haile"
-            class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
-          />
-        </div>
-        <div>
-          <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1">Email</label>
-          <input
-            id="login-email"
-            type="email"
-            value="admin@roastery.com"
-            required
-            class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
-          />
-        </div>
-        <div>
-          <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1">Password</label>
-          <input
-            id="login-password"
-            type="password"
-            value="1234"
-            required
-            class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
-          />
-        </div>
-        <button
-          id="login-submit-btn"
-          type="submit"
-          class="w-full py-3 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-md shadow-brand-500/25 transition-all mt-2 active:scale-95"
-        >
-          Sign In to Command Center
-        </button>
-      </form>
-
-      <div id="login-footer-info" class="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[10px] text-slate-400">
-        <span id="login-footer-label">Demo Fallback: <strong class="text-brand-600 dark:text-brand-400">admin@roastery.com / 1234</strong></span>
-        <button type="button" onclick="openSupabaseModal()" class="text-brand-600 hover:underline font-bold">Supabase Setup</button>
-      </div>
+  <!-- Metric Counters -->
+  <div class="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-lg">
+      <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Gross Sales</p>
+      <h3 class="text-2xl font-black text-white mt-1" id="m-metric-sales">Br 0.00</h3>
+      <p class="text-[11px] font-medium text-emerald-400 mt-1">Live from database</p>
+    </div>
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-lg">
+      <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Active Tickets</p>
+      <h3 class="text-2xl font-black text-white mt-1" id="m-metric-orders">0</h3>
+      <p class="text-[11px] font-medium text-orange-400 mt-1">In kitchen & queue</p>
+    </div>
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-lg">
+      <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Customer Reviews</p>
+      <h3 class="text-2xl font-black text-white mt-1" id="m-metric-rating">5.0 ★</h3>
+      <p class="text-[11px] font-medium text-slate-400 mt-1" id="m-metric-review-count">0 reviews</p>
+    </div>
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-lg">
+      <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Roster Cashiers</p>
+      <h3 class="text-2xl font-black text-white mt-1" id="m-metric-staff">0</h3>
+      <p class="text-[11px] font-medium text-blue-400 mt-1">Active PIN terminals</p>
     </div>
   </div>
 
-  <!-- SUPABASE CONFIGURATION MODAL -->
-  <div id="supabase-modal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-    <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-md w-full border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
-      <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-        <div class="flex items-center gap-2">
-          <div class="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold">
-            ⚡
-          </div>
-          <div>
-            <h3 class="text-base font-extrabold text-slate-900 dark:text-white">Supabase Authentication & DB</h3>
-            <p class="text-[11px] text-slate-400">Connect your Supabase project for real-time cloud sync</p>
-          </div>
-        </div>
-        <button onclick="closeSupabaseModal()" class="text-slate-400 hover:text-slate-600 text-sm">✕</button>
-      </div>
-
-      <form onsubmit="handleSaveSupabaseConfig(event)" class="space-y-3 text-xs">
-        <div>
-          <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Supabase Project URL</label>
-          <input
-            id="cfg-supabase-url"
-            type="url"
-            placeholder="https://zxjwllvykzxmdvkcdwix.supabase.co"
-            class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 font-mono text-[11px]"
-          />
-          <p class="text-[10px] text-slate-400 mt-1">Found in your Supabase Dashboard under Project Settings &gt; API</p>
-        </div>
-
-        <div>
-          <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Supabase Anon Public API Key</label>
-          <input
-            id="cfg-supabase-key"
-            type="password"
-            placeholder="sb_publishable_Ch6lIX6ZSbulVuA7pM6eNg_x8klP4hO"
-            class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 font-mono text-[11px]"
-          />
-          <p class="text-[10px] text-slate-400 mt-1">Safe for browser use. Protects endpoints via Row Level Security (RLS).</p>
-        </div>
-
-        <div class="p-3 bg-blue-50/60 dark:bg-blue-950/30 rounded-xl border border-blue-200/60 dark:border-blue-900/40 text-[11px] text-blue-800 dark:text-blue-300 space-y-1">
-          <p class="font-bold">Database Setup Notice:</p>
-          <p>Run the included <code class="font-mono bg-blue-100 dark:bg-blue-900 px-1 rounded">supabase_schema.sql</code> script in your Supabase SQL Editor to create the tables, RLS policies, and fast Cashier PIN RPC function.</p>
-        </div>
-
-        <div class="pt-2 flex justify-between items-center">
-          <button type="button" onclick="handleClearSupabaseConfig()" class="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-bold text-xs" title="Reset to integrated online Supabase project">Reset to Default</button>
-          <div class="flex gap-2">
-            <button type="button" onclick="closeSupabaseModal()" class="px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl font-bold text-slate-600 dark:text-slate-300">Cancel</button>
-            <button type="submit" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-md shadow-emerald-500/25">Save & Connect</button>
-          </div>
-        </div>
-      </form>
-    </div>
+  <!-- Manager Tabs -->
+  <div class="px-6 flex gap-2 border-b border-slate-800 pb-2">
+    <button onclick="setManagerTab('menu')" id="mtab-menu" class="px-4 py-2 rounded-xl text-xs font-bold bg-orange-600 text-white">Menu & 86 Item Toggles</button>
+    <button onclick="setManagerTab('staff')" id="mtab-staff" class="px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 text-slate-400 hover:text-white">Staff Roster & PINs</button>
+    <button onclick="setManagerTab('reviews')" id="mtab-reviews" class="px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 text-slate-400 hover:text-white">Diner Reviews</button>
   </div>
 
-  <!-- RLS Policy Fix Helper Modal -->
-  <div id="rls-help-modal" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-xs flex items-center justify-center p-4">
-    <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-lg w-full border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
-      <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-        <div class="flex items-center gap-2.5">
-          <div class="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold text-base">
-            🛡️
-          </div>
-          <div>
-            <h3 class="text-base font-extrabold text-slate-900 dark:text-white">Supabase RLS Policy Fix</h3>
-            <p class="text-[11px] text-slate-400">Why the sync failed & how to unlock it in 10 seconds</p>
-          </div>
-        </div>
-        <button onclick="closeRlsModal()" class="text-slate-400 hover:text-slate-600 text-sm">✕</button>
-      </div>
-
-      <div class="space-y-3 text-xs text-slate-600 dark:text-slate-300">
-        <p>
-          <strong class="text-slate-900 dark:text-white">Why did this happen?</strong><br/>
-          In PostgreSQL, Supabase tables have <em>Row Level Security (RLS)</em> enabled. When you click <em>Sync to Supabase</em>, an <code class="font-mono bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded text-brand-600 dark:text-brand-400">upsert</code> (insert/update) query is sent. If the table doesn't have an RLS policy with <code class="font-mono bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded text-brand-600 dark:text-brand-400">WITH CHECK (true)</code>, PostgreSQL blocks the write for security.
-        </p>
-
-        <div class="space-y-1.5">
-          <div class="flex justify-between items-center">
-            <span class="font-bold text-[11px] text-slate-700 dark:text-slate-200">Copy this SQL fix:</span>
-            <button id="copy-rls-sql-btn" onclick="copyRlsSql()" class="px-2.5 py-1 bg-brand-50 hover:bg-brand-100 dark:bg-brand-950/50 dark:hover:bg-brand-900/50 text-brand-600 dark:text-brand-300 rounded-lg text-[11px] font-bold transition-all border border-brand-200/50 flex items-center gap-1">
-              <span>📋 Copy SQL</span>
-            </button>
-          </div>
-          <pre id="rls-sql-code" class="p-3 bg-slate-900 text-slate-100 rounded-xl font-mono text-[11px] overflow-x-auto border border-slate-800 select-all leading-relaxed">-- 1. Grant table privileges to anon and authenticated roles
-GRANT ALL ON TABLE public.staff TO anon, authenticated, service_role;
-
--- 2. Enable RLS and grant full read/write/upsert policy
-ALTER TABLE public.staff ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Allow read access to staff" ON public.staff;
-DROP POLICY IF EXISTS "Allow manager write access to staff" ON public.staff;
-DROP POLICY IF EXISTS "Allow all operations on staff" ON public.staff;
-CREATE POLICY "Allow all operations on staff" ON public.staff
-  FOR ALL USING (true) WITH CHECK (true);</pre>
-        </div>
-
-        <div class="p-3 bg-emerald-50/70 dark:bg-emerald-950/30 rounded-xl border border-emerald-200/60 dark:border-emerald-900/40 text-[11px] text-emerald-800 dark:text-emerald-300 space-y-1">
-          <p class="font-bold">Next Steps:</p>
-          <ol class="list-decimal list-inside space-y-0.5 text-[11px]">
-            <li>Open your <a href="https://supabase.com/dashboard" target="_blank" class="underline font-semibold hover:text-emerald-600">Supabase Dashboard</a>.</li>
-            <li>Go to <strong>SQL Editor</strong> on the left menu and click <strong>New Query</strong>.</li>
-            <li>Paste the SQL above and click <strong>Run</strong> (or press Ctrl+Enter).</li>
-            <li>Come back here and click <strong>Sync to Supabase</strong> again!</li>
-          </ol>
+  <!-- Main View Area -->
+  <main class="flex-1 p-6 overflow-y-auto">
+    <!-- Menu & 86 Manager Panel -->
+    <div id="mview-menu" class="space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-base font-extrabold text-white">Catalog & Availability Guard</h2>
+          <p class="text-xs text-slate-400">Toggle items on/off to immediately prevent order placements</p>
         </div>
       </div>
-
-      <div class="pt-2 flex justify-end gap-2">
-        <button type="button" onclick="closeRlsModal()" class="px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl font-bold text-slate-600 dark:text-slate-300 text-xs">Close</button>
-        <button type="button" onclick="syncStaffWithSupabaseCloud(); closeRlsModal();" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-bold text-xs shadow-md shadow-brand-500/25">Try Sync Again</button>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="m-menu-container">
+        <!-- Dish cards -->
       </div>
     </div>
-  </div>
 
-  <!-- ============================================================== -->
-  <!-- MAIN MANAGER INTERFACE                                         -->
-  <!-- ============================================================== -->
-  <div class="flex h-screen w-screen overflow-hidden">
-
-    <!-- LEFT VERTICAL SIDEBAR (4 Tabs) -->
-    <aside class="w-64 bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 flex flex-col justify-between p-4 shrink-0 z-20">
-      <div class="space-y-6">
-        <!-- Brand Header -->
-        <div class="flex items-center gap-3 px-2">
-          <div class="w-10 h-10 rounded-xl bg-brand-600 text-white flex items-center justify-center shadow-md shadow-brand-500/20">
-            <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
-          </div>
-          <div>
-            <h1 class="text-sm font-extrabold text-slate-900 dark:text-white leading-tight">Fasr Orders</h1>
-            <p class="text-[11px] font-medium text-slate-400">Manager Center</p>
-          </div>
-        </div>
-
-        <!-- Navigation Tabs -->
-        <nav class="space-y-1.5" id="nav-tabs">
-          <button onclick="switchTab('auth')" id="nav-auth" class="w-full px-3.5 py-2.5 rounded-xl bg-brand-600 text-white font-bold text-xs flex items-center gap-3 transition-colors shadow-sm">
-            <i data-lucide="key" class="w-4 h-4"></i>
-            <span>1. Cashier Auth</span>
-          </button>
-          <button onclick="switchTab('menu')" id="nav-menu" class="w-full px-3.5 py-2.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold text-xs flex items-center gap-3 transition-colors">
-            <i data-lucide="book-open" class="w-4 h-4"></i>
-            <span>2. Menu Catalog</span>
-          </button>
-          <button onclick="switchTab('analytics')" id="nav-analytics" class="w-full px-3.5 py-2.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold text-xs flex items-center gap-3 transition-colors">
-            <i data-lucide="line-chart" class="w-4 h-4"></i>
-            <span>3. Sales Analytics</span>
-          </button>
-          <button onclick="switchTab('reviews')" id="nav-reviews" class="w-full px-3.5 py-2.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold text-xs flex items-center gap-3 transition-colors">
-            <i data-lucide="star" class="w-4 h-4"></i>
-            <span>4. Customer Reviews</span>
-          </button>
-        </nav>
-      </div>
-
-      <!-- Footer Info & Logout -->
-      <div class="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-2">
-        <div class="px-2">
-          <p class="text-xs font-bold text-slate-800 dark:text-white truncate">Administrator</p>
-          <p class="text-[10px] text-slate-400 truncate">admin@roastery.com</p>
-        </div>
-        <button onclick="logoutManager()" class="w-full py-2 bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-600 dark:text-slate-300 hover:text-rose-600 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-colors">
-          <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
-          <span>Sign Out</span>
-        </button>
-      </div>
-    </aside>
-
-    <!-- RIGHT MAIN CONTENT WORKSPACE -->
-    <div class="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
-
-      <!-- TOP HEADER -->
-      <header class="h-16 bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 px-6 flex items-center justify-between shrink-0">
+    <!-- Staff Roster Panel -->
+    <div id="mview-staff" class="hidden space-y-4 max-w-4xl">
+      <div class="flex items-center justify-between">
         <div>
-          <h2 id="page-title" class="text-base font-extrabold text-slate-900 dark:text-white">Cashier Terminal Security & Auth</h2>
-          <p id="page-subtitle" class="text-xs text-slate-400">Remote control cashier terminals, reset staff PINs</p>
+          <h2 class="text-base font-extrabold text-white">Cashier Authorization</h2>
+          <p class="text-xs text-slate-400">Manage 4-digit PIN access for counter terminals</p>
         </div>
-
-        <div class="flex items-center gap-3">
-          <button onclick="openSupabaseModal()" id="topbar-supabase-btn" class="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-full text-xs font-bold transition-all">
-            <span id="topbar-supabase-dot" class="w-2 h-2 rounded-full bg-emerald-500"></span>
-            <span id="topbar-supabase-text">Supabase Config</span>
-          </button>
-          <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 rounded-full text-xs font-bold">
-            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            Real-Time Sync Active
-          </span>
-        </div>
-      </header>
-
-      <!-- VIEW CONTAINER -->
-      <main class="flex-1 overflow-y-auto p-6">
-
-        <!-- ============================================== -->
-        <!-- TAB 1: CASHIER AUTH & STAFF MANAGEMENT         -->
-        <!-- ============================================== -->
-        <div id="tab-auth-view" class="space-y-6 max-w-5xl">
-          <!-- Terminal Status Card -->
-          <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
-            <div class="flex items-center gap-4">
-              <div id="terminal-status-icon" class="w-14 h-14 rounded-2xl bg-rose-100 dark:bg-rose-950/50 text-rose-600 flex items-center justify-center">
-                <i data-lucide="lock" class="w-7 h-7"></i>
-              </div>
-              <div>
-                <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Terminal Register #01</span>
-                <h3 id="terminal-status-text" class="text-2xl font-extrabold text-slate-900 dark:text-white">LOCKED</h3>
-                <p id="terminal-last-unlocked" class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Staff required to enter PIN before taking orders</p>
-              </div>
-            </div>
-
-            <!-- 1-Click Remote Toggle Button -->
-            <button
-              id="remote-lock-btn"
-              onclick="toggleRemoteCashierLock()"
-              class="w-full md:w-auto px-6 py-3.5 bg-brand-600 hover:bg-brand-700 text-white font-extrabold text-xs rounded-2xl shadow-lg shadow-brand-500/25 flex items-center justify-center gap-2 transition-all active:scale-95"
-            >
-              <i data-lucide="unlock" class="w-4 h-4"></i>
-              <span>Remote 1-Click Unlock Terminal</span>
-            </button>
-          </div>
-
-          <!-- Staff & Cashier Roster Management (Multi-Staff) -->
-          <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-5">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
-              <div>
-                <div class="flex items-center gap-2.5">
-                  <h3 class="text-base font-extrabold text-slate-900 dark:text-white">Staff & Cashier Roster</h3>
-                  <span id="staff-total-count" class="text-[11px] font-bold bg-blue-50 dark:bg-blue-900/40 text-brand-600 dark:text-brand-300 px-2.5 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">4 Staff Members</span>
-                </div>
-                <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Add multiple cashiers, update 4-digit PINs, assign terminals, and manage authorization.
-                </p>
-              </div>
-
-              <div class="flex items-center gap-2 self-start sm:self-auto flex-wrap">
-                <button
-                  type="button"
-                  onclick="syncStaffWithSupabaseCloud()"
-                  class="px-3.5 py-2.5 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 shadow-xs"
-                  title="Push staff records to Supabase staff table"
-                >
-                  <i data-lucide="cloud-upload" class="w-4 h-4"></i>
-                  <span>Sync to Supabase</span>
-                </button>
-                <button
-                  type="button"
-                  onclick="openRlsModal()"
-                  class="px-2.5 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all"
-                  title="View SQL & Row Level Security Setup"
-                >
-                  <i data-lucide="shield-alert" class="w-4 h-4 text-amber-500"></i>
-                  <span>RLS Fix / SQL</span>
-                </button>
-                <button
-                  onclick="openAddStaffModal()"
-                  class="px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold shadow-md shadow-brand-500/20 flex items-center gap-2 transition-all active:scale-95"
-                >
-                  <i data-lucide="user-plus" class="w-4 h-4"></i>
-                  <span>Add Cashier / Staff</span>
-                </button>
-              </div>
-            </div>
-
-            <!-- Staff Members Table -->
-            <div class="overflow-x-auto">
-              <table class="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr class="border-b border-slate-100 dark:border-slate-800 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                    <th class="py-3 px-4">Staff Member</th>
-                    <th class="py-3 px-4">Role</th>
-                    <th class="py-3 px-4">Terminal</th>
-                    <th class="py-3 px-4">Security PIN</th>
-                    <th class="py-3 px-4">Status</th>
-                    <th class="py-3 px-4 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="staff-roster-tbody" class="divide-y divide-slate-100 dark:divide-slate-800">
-                  <!-- Rendered dynamically via JS -->
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <!-- ============================================== -->
-        <!-- TAB 2: MENU CATALOG (Add / Edit / Delete / Br)  -->
-        <!-- ============================================== -->
-        <div id="tab-menu-view" class="hidden space-y-4">
-          <div class="flex items-center justify-between">
-            <div>
-              <h3 class="text-base font-extrabold text-slate-900 dark:text-white">Dishes & Pricing in Ethiopian Birr (Br)</h3>
-              <p class="text-xs text-slate-400">Changes reflect immediately on Customer phones and Cashier POS.</p>
-            </div>
-            <button onclick="openAddDishModal()" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold shadow-sm flex items-center gap-1.5">
-              <i data-lucide="plus" class="w-4 h-4"></i>
-              <span>Add New Dish</span>
-            </button>
-          </div>
-
-          <!-- Dishes Table -->
-          <div class="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
-            <div class="overflow-x-auto">
-              <table class="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr class="border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                    <th class="py-3 px-5">Dish</th>
-                    <th class="py-3 px-4">Category</th>
-                    <th class="py-3 px-4">Price (Br)</th>
-                    <th class="py-3 px-4">Availability</th>
-                    <th class="py-3 px-5 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="manager-menu-table" class="divide-y divide-slate-100 dark:divide-slate-800">
-                  <!-- Rendered dynamically -->
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <!-- ============================================== -->
-        <!-- TAB 3: SALES ANALYTICS & 4 VISUAL CHARTS       -->
-        <!-- ============================================== -->
-        <div id="tab-analytics-view" class="hidden space-y-6">
-          <div class="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h3 class="text-base font-extrabold text-slate-900 dark:text-white">Sales Analytics & Financial Trends</h3>
-              <p class="text-xs text-slate-400">Real-time revenue metrics, order velocity, and downloadable reports.</p>
-            </div>
-            <button onclick="downloadSalesCsv()" class="px-4 py-2.5 bg-slate-900 dark:bg-slate-800 hover:bg-black text-white rounded-xl text-xs font-bold shadow-sm flex items-center gap-2">
-              <i data-lucide="download" class="w-4 h-4"></i>
-              <span>Download Monthly CSV Report</span>
-            </button>
-          </div>
-
-          <!-- 4 KPI Cards in Ethiopian Birr (Br) -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm">
-              <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Gross Sales</span>
-              <h4 id="kpi-gross-sales" class="text-2xl font-extrabold text-slate-900 dark:text-white mt-1">Br 2,948.00</h4>
-              <p class="text-[11px] text-emerald-600 font-bold mt-1">↑ +18.4% vs last week</p>
-            </div>
-
-            <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm">
-              <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Tickets</span>
-              <h4 id="kpi-orders-count" class="text-2xl font-extrabold text-slate-900 dark:text-white mt-1">3 Orders</h4>
-              <p class="text-[11px] text-brand-600 font-bold mt-1">Live customer dining</p>
-            </div>
-
-            <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm">
-              <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Avg Ticket Size</span>
-              <h4 id="kpi-avg-ticket" class="text-2xl font-extrabold text-slate-900 dark:text-white mt-1">Br 982.60</h4>
-              <p class="text-[11px] text-slate-400 mt-1">Per dining table</p>
-            </div>
-
-            <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm">
-              <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Customer Rating</span>
-              <h4 id="kpi-avg-rating" class="text-2xl font-extrabold text-amber-500 mt-1">4.2 ★</h4>
-              <p class="text-[11px] text-slate-400 mt-1">Based on digital reviews</p>
-            </div>
-          </div>
-
-          <!-- 4 Visual Trend Charts (2x2 Grid) -->
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <!-- Chart 1: Hourly Rush Curve -->
-            <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3">
-              <div class="flex justify-between items-center">
-                <h4 class="text-xs font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">1. Hourly Sales Rush Curve (Br)</h4>
-                <span class="text-[10px] text-brand-600 font-bold bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-full">Lunch Rush 1:00 PM</span>
-              </div>
-              <div class="h-44 w-full pt-2">
-                <svg class="w-full h-full" viewBox="0 0 400 140" preserveAspectRatio="none">
-                  <path d="M 0 120 Q 50 110 80 80 T 150 25 T 220 90 T 290 20 T 360 60 L 400 100 L 400 140 L 0 140 Z" fill="rgba(37,99,235,0.15)"/>
-                  <path d="M 0 120 Q 50 110 80 80 T 150 25 T 220 90 T 290 20 T 360 60 L 400 100" fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round"/>
-                  <circle cx="150" cy="25" r="4" fill="#2563eb"/>
-                  <circle cx="290" cy="20" r="4" fill="#2563eb"/>
-                </svg>
-                <div class="flex justify-between text-[10px] text-slate-400 font-bold mt-1">
-                  <span>11 AM</span>
-                  <span class="text-brand-600">1 PM (Tibs Peak)</span>
-                  <span>4 PM</span>
-                  <span class="text-brand-600">8 PM (Dinner)</span>
-                  <span>11 PM</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Chart 2: Category Revenue Breakdown -->
-            <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3">
-              <h4 class="text-xs font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">2. Category Share Breakdown</h4>
-              <div class="space-y-2.5 pt-2 text-xs">
-                <div>
-                  <div class="flex justify-between font-bold mb-1">
-                    <span>Lunch & Tibs (52%)</span>
-                    <span class="text-brand-600">Br 1,530.00</span>
-                  </div>
-                  <div class="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                    <div class="h-full bg-brand-600 rounded-full" style="width: 52%"></div>
-                  </div>
-                </div>
-                <div>
-                  <div class="flex justify-between font-bold mb-1">
-                    <span>Dinner Specials (28%)</span>
-                    <span class="text-brand-600">Br 825.00</span>
-                  </div>
-                  <div class="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                    <div class="h-full bg-emerald-500 rounded-full" style="width: 28%"></div>
-                  </div>
-                </div>
-                <div>
-                  <div class="flex justify-between font-bold mb-1">
-                    <span>Bar & Beverages (20%)</span>
-                    <span class="text-brand-600">Br 593.00</span>
-                  </div>
-                  <div class="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                    <div class="h-full bg-purple-500 rounded-full" style="width: 20%"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Chart 3: Top 5 Best-Selling Dishes -->
-            <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3">
-              <h4 class="text-xs font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">3. Top Selling Dishes</h4>
-              <div class="space-y-2 text-xs" id="analytics-top-dishes">
-                <!-- Injected via JS -->
-              </div>
-            </div>
-
-            <!-- Chart 4: Order Channels Breakdown -->
-            <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3">
-              <h4 class="text-xs font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">4. Dining Channels</h4>
-              <div class="grid grid-cols-3 gap-3 pt-4 text-center">
-                <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800">
-                  <span class="text-[10px] text-slate-400 font-bold block">Mobile QR</span>
-                  <span class="text-lg font-extrabold text-brand-600">65%</span>
-                </div>
-                <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800">
-                  <span class="text-[10px] text-slate-400 font-bold block">Cashier POS</span>
-                  <span class="text-lg font-extrabold text-emerald-600">25%</span>
-                </div>
-                <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800">
-                  <span class="text-[10px] text-slate-400 font-bold block">Takeaway</span>
-                  <span class="text-lg font-extrabold text-purple-600">10%</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ============================================== -->
-        <!-- TAB 4: CUSTOMER REVIEWS & AUDITING             -->
-        <!-- ============================================== -->
-        <div id="tab-reviews-view" class="hidden space-y-6 max-w-5xl">
-          <!-- KPI Summary Cards -->
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center justify-between">
-              <div>
-                <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Feedbacks</p>
-                <h3 id="rev-total-count" class="text-2xl font-black text-slate-900 dark:text-white mt-0.5">0</h3>
-                <span class="text-[10px] text-slate-400">Across all days</span>
-              </div>
-              <div class="w-11 h-11 rounded-2xl bg-blue-50 dark:bg-blue-950/50 text-brand-600 flex items-center justify-center">
-                <i data-lucide="message-square" class="w-5 h-5"></i>
-              </div>
-            </div>
-
-            <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center justify-between">
-              <div>
-                <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Avg Star Rating</p>
-                <div class="flex items-baseline gap-1 mt-0.5">
-                  <h3 id="rev-avg-rating" class="text-2xl font-black text-amber-500">0.0</h3>
-                  <span class="text-xs text-slate-400">/ 5.0</span>
-                </div>
-                <div id="rev-avg-stars" class="text-[11px] text-amber-400 font-bold">★★★★★</div>
-              </div>
-              <div class="w-11 h-11 rounded-2xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 flex items-center justify-center">
-                <i data-lucide="star" class="w-5 h-5"></i>
-              </div>
-            </div>
-
-            <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-rose-200/80 dark:border-rose-900/60 bg-rose-50/20 dark:bg-rose-950/20 shadow-sm flex items-center justify-between">
-              <div>
-                <p class="text-[11px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider">Low Stars (1★ - 2★)</p>
-                <h3 id="rev-low-count" class="text-2xl font-black text-rose-600 dark:text-rose-400 mt-0.5">0</h3>
-                <span class="text-[10px] text-rose-500 font-bold">⚠️ Needs Immediate Action</span>
-              </div>
-              <div class="w-11 h-11 rounded-2xl bg-rose-100 dark:bg-rose-950 text-rose-600 flex items-center justify-center">
-                <i data-lucide="alert-triangle" class="w-5 h-5"></i>
-              </div>
-            </div>
-
-            <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center justify-between">
-              <div>
-                <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Delighted (5★)</p>
-                <h3 id="rev-five-count" class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5">0</h3>
-                <span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">Top ratings</span>
-              </div>
-              <div class="w-11 h-11 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 flex items-center justify-center">
-                <i data-lucide="smile" class="w-5 h-5"></i>
-              </div>
-            </div>
-          </div>
-
-          <!-- Controls Bar: Day Categorization Tabs, Priority Indicator, Star Filter -->
-          <div class="bg-white dark:bg-slate-900 rounded-3xl p-4 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
-            <div class="flex items-center gap-1.5 flex-wrap">
-              <span class="text-xs font-bold text-slate-400 mr-1 flex items-center gap-1">
-                <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
-                Days:
-              </span>
-              <button onclick="setReviewDayFilter('all')" id="btn-day-all" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-brand-600 text-white shadow-xs transition-colors">All Days</button>
-              <button onclick="setReviewDayFilter('today')" id="btn-day-today" class="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">Today</button>
-              <button onclick="setReviewDayFilter('yesterday')" id="btn-day-yesterday" class="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">Yesterday</button>
-              <button onclick="setReviewDayFilter('older')" id="btn-day-older" class="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">Older Days</button>
-            </div>
-
-            <div class="flex items-center gap-2.5 flex-wrap">
-              <!-- Priority indicator pill -->
-              <div class="px-3 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 text-[11px] font-extrabold flex items-center gap-1.5 shadow-xs">
-                <i data-lucide="arrow-down-narrow-wide" class="w-3.5 h-3.5"></i>
-                <span>Lowered Stars Pinned at Top</span>
-              </div>
-
-              <!-- Star filter dropdown -->
-              <select id="review-star-filter" onchange="setReviewStarFilter(this.value)" class="px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none">
-                <option value="all">All Star Ratings</option>
-                <option value="low">⚠️ Critical (1★ - 2★ Only)</option>
-                <option value="mid">Neutral (3★ Only)</option>
-                <option value="high">Positive (4★ - 5★ Only)</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- Day-Categorized Reviews Container -->
-          <div id="manager-reviews-list" class="space-y-6">
-            <!-- Rendered dynamically grouped by day with lowered stars on top -->
-          </div>
-        </div>
-
-      </main>
+        <button onclick="openAddStaffModal()" class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold rounded-xl shadow-md">+ Add Cashier</button>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 rounded-3xl divide-y divide-slate-800" id="m-staff-container">
+        <!-- Staff members list -->
+      </div>
     </div>
-  </div>
 
-  <!-- ADD DISH MODAL -->
-  <div id="add-dish-modal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-    <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-md w-full border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
-      <div class="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-        <h3 class="text-base font-extrabold text-slate-900 dark:text-white">Add New Dish</h3>
-        <button onclick="closeAddDishModal()" class="text-slate-400 hover:text-slate-600">✕</button>
+    <!-- Diner Reviews Panel -->
+    <div id="mview-reviews" class="hidden space-y-4 max-w-3xl">
+      <h2 class="text-base font-extrabold text-white">Guest Feedback Feed</h2>
+      <div class="space-y-3" id="m-reviews-container">
+        <!-- Reviews list -->
       </div>
-
-      <form onsubmit="handleCreateDishSubmit(event)" class="space-y-3 text-xs">
-        <div>
-          <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Dish Name</label>
-          <input id="dish-name" type="text" required placeholder="e.g. Lamb Awaze Tibs" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none" />
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Category</label>
-            <select id="dish-cat" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none">
-              <option value="lunch">Lunch</option>
-              <option value="dinner">Dinner</option>
-              <option value="fast_food">Fast Food</option>
-              <option value="beverages">Beverages & Bar</option>
-              <option value="dessert">Dessert</option>
-            </select>
-          </div>
-          <div>
-            <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Price (Br)</label>
-            <input id="dish-price" type="number" step="10" required placeholder="420" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none" />
-          </div>
-        </div>
-        <div>
-          <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Description</label>
-          <textarea id="dish-desc" rows="2" placeholder="Freshly cooked with authentic Ethiopian spices..." class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none"></textarea>
-        </div>
-        <div>
-          <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Image URL</label>
-          <input id="dish-img" type="url" value="https://images.unsplash.com/photo-1544025162-d76694265947?w=500" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none" />
-        </div>
-
-        <div class="pt-2 flex justify-end gap-2">
-          <button type="button" onclick="closeAddDishModal()" class="px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl font-bold text-slate-600 dark:text-slate-300">Cancel</button>
-          <button type="submit" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-bold">Save Dish</button>
-        </div>
-      </form>
     </div>
-  </div>
+  </main>
 
-  <!-- ADD STAFF MODAL -->
-  <div id="add-staff-modal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-    <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-md w-full border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
-      <div class="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-        <h3 class="text-base font-extrabold text-slate-900 dark:text-white">Add Cashier / Staff Member</h3>
-        <button onclick="closeAddStaffModal()" class="text-slate-400 hover:text-slate-600">✕</button>
-      </div>
-
-      <form onsubmit="handleCreateStaffSubmit(event)" class="space-y-3 text-xs">
-        <div>
-          <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Full Name</label>
-          <input id="staff-name-input" type="text" required placeholder="e.g. Dawit Bekele" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none" />
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Staff Username</label>
-            <input id="staff-user-input" type="text" required placeholder="cashier4" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none" />
-          </div>
-          <div>
-            <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">4-Digit Security PIN</label>
-            <input id="staff-pin-new" type="password" maxlength="4" required placeholder="1234" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold tracking-widest focus:outline-none" />
-          </div>
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Role</label>
-            <select id="staff-role-select" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none">
-              <option value="Head Cashier">Head Cashier</option>
-              <option value="Cashier" selected>Cashier</option>
-              <option value="Cashier / Barista">Cashier / Barista</option>
-              <option value="Cashier / Server">Cashier / Server</option>
-              <option value="Kitchen Lead">Kitchen Lead</option>
-            </select>
-          </div>
-          <div>
-            <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Assigned Terminal</label>
-            <select id="staff-term-select" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none">
-              <option value="Terminal 01">Terminal 01</option>
-              <option value="Terminal 02">Terminal 02</option>
-              <option value="Bar Terminal">Bar Terminal</option>
-              <option value="Floor Handheld">Floor Handheld</option>
-              <option value="Kitchen KDS">Kitchen KDS</option>
-            </select>
-          </div>
-        </div>
-        <div>
-          <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Avatar Photo URL</label>
-          <input id="staff-avatar-input" type="url" value="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none" />
-        </div>
-
-        <div class="pt-2 flex justify-end gap-2">
-          <button type="button" onclick="closeAddStaffModal()" class="px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl font-bold text-slate-600 dark:text-slate-300">Cancel</button>
-          <button type="submit" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-bold shadow-md shadow-brand-500/20">Save Staff Member</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- EDIT STAFF MODAL -->
-  <div id="edit-staff-modal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-    <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-md w-full border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
-      <div class="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-        <h3 class="text-base font-extrabold text-slate-900 dark:text-white">Edit Staff Member</h3>
-        <button onclick="closeEditStaffModal()" class="text-slate-400 hover:text-slate-600">✕</button>
-      </div>
-
-      <form onsubmit="handleEditStaffSubmit(event)" class="space-y-3 text-xs">
-        <input type="hidden" id="edit-staff-id" />
-        <div>
-          <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Full Name</label>
-          <input id="edit-staff-name" type="text" required class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none" />
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Staff Username</label>
-            <input id="edit-staff-username" type="text" required class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none" />
-          </div>
-          <div>
-            <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">4-Digit Security PIN</label>
-            <input id="edit-staff-pin" type="password" maxlength="4" required class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold tracking-widest focus:outline-none" />
-          </div>
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Role</label>
-            <select id="edit-staff-role" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none">
-              <option value="Head Cashier">Head Cashier</option>
-              <option value="Cashier">Cashier</option>
-              <option value="Cashier / Barista">Cashier / Barista</option>
-              <option value="Cashier / Server">Cashier / Server</option>
-              <option value="Kitchen Lead">Kitchen Lead</option>
-            </select>
-          </div>
-          <div>
-            <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Assigned Terminal</label>
-            <select id="edit-staff-terminal" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none">
-              <option value="Terminal 01">Terminal 01</option>
-              <option value="Terminal 02">Terminal 02</option>
-              <option value="Bar Terminal">Bar Terminal</option>
-              <option value="Floor Handheld">Floor Handheld</option>
-              <option value="Kitchen KDS">Kitchen KDS</option>
-            </select>
-          </div>
-        </div>
-        <div>
-          <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Avatar Photo URL</label>
-          <input id="edit-staff-avatar" type="url" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none" />
-        </div>
-
-        <div class="pt-2 flex justify-end gap-2">
-          <button type="button" onclick="closeEditStaffModal()" class="px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl font-bold text-slate-600 dark:text-slate-300">Cancel</button>
-          <button type="submit" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-bold shadow-md shadow-brand-500/20">Update Staff</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- JAVASCRIPT LOGIC -->
   <script>
-    let currentTab = 'auth';
-    let isSignUpMode = false;
+    window.addEventListener('DOMContentLoaded', async () => {
+      await window.fasrSync.ready;
+      await window.fasrSync.requireLogin(['manager']);
 
-    async function init() {
-      // 1. Check Manager Auth session via Supabase or demo storage
-      const session = await window.fasrSupabase.getManagerSession();
-      if (session) {
-        document.getElementById('login-gate').classList.add('hidden');
-        updateManagerProfileHeader(session.user);
-      } else {
-        document.getElementById('login-gate').classList.remove('hidden');
-      }
+      renderMetrics();
+      renderMenuEditor();
+      renderStaffRoster();
+      renderReviews();
+      syncLockState();
 
-      updateSupabaseStatusBadges();
-      renderAuthTab();
-      renderMenuTab();
-      renderAnalyticsTab();
-      renderReviewsTab();
-      lucide.createIcons();
-
-      // Listen to cross-page updates
       window.fasrSync.subscribe((event) => {
-        if (event.type === 'CASHIER_AUTH_CHANGED' || event.type === 'STAFF_CHANGED') {
-          renderAuthTab();
-        } else if (event.type === 'ORDER_CREATED' || event.type === 'ORDER_STATUS_CHANGED') {
-          renderAnalyticsTab();
-        } else if (event.type === 'REVIEW_CREATED') {
-          renderReviewsTab();
-          window.fasrSound.playCashierDing();
-          window.showToast("⭐ New customer review received!", "info");
-        } else if (event.type === 'MENU_CHANGED') {
-          renderMenuTab();
-        }
+        if (event.type === 'MENU_CHANGED') renderMenuEditor();
+        if (event.type === 'STAFF_CHANGED') renderStaffRoster();
+        if (event.type === 'ORDER_CREATED' || event.type === 'ORDER_STATUS_CHANGED') renderMetrics();
+        if (event.type === 'REVIEW_CREATED') { renderReviews(); renderMetrics(); }
+        if (event.type === 'CASHIER_AUTH_CHANGED') syncLockState();
       });
+    });
 
-      // Listen for Supabase Auth state changes
-      window.fasrSupabase.onAuthStateChange((event, s) => {
-        if (s && s.user) {
-          document.getElementById('login-gate').classList.add('hidden');
-          updateManagerProfileHeader(s.user);
-        } else if (event === 'SIGNED_OUT') {
-          document.getElementById('login-gate').classList.remove('hidden');
-          setAuthMode(false);
-        }
-        updateSupabaseStatusBadges();
-      });
+    function setManagerTab(tab) {
+      document.getElementById('mview-menu').classList.toggle('hidden', tab !== 'menu');
+      document.getElementById('mview-staff').classList.toggle('hidden', tab !== 'staff');
+      document.getElementById('mview-reviews').classList.toggle('hidden', tab !== 'reviews');
+
+      document.getElementById('mtab-menu').className = tab === 'menu' ? 'px-4 py-2 rounded-xl text-xs font-bold bg-orange-600 text-white' : 'px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 text-slate-400 hover:text-white';
+      document.getElementById('mtab-staff').className = tab === 'staff' ? 'px-4 py-2 rounded-xl text-xs font-bold bg-orange-600 text-white' : 'px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 text-slate-400 hover:text-white';
+      document.getElementById('mtab-reviews').className = tab === 'reviews' ? 'px-4 py-2 rounded-xl text-xs font-bold bg-orange-600 text-white' : 'px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 text-slate-400 hover:text-white';
     }
 
-    // Toggle Sign In vs Sign Up
-    function setAuthMode(isSignUp) {
-      isSignUpMode = isSignUp;
-      showAlertBox('');
-      const nameField = document.getElementById('signup-name-field');
-      const devTip = document.getElementById('signup-dev-tip');
-      const submitBtn = document.getElementById('login-submit-btn');
-      const signInBtn = document.getElementById('auth-mode-signin');
-      const signUpBtn = document.getElementById('auth-mode-signup');
+    function renderMetrics() {
+      const orders = window.fasrSync.getOrders();
+      const reviews = window.fasrSync.getReviews();
+      const staff = window.fasrSync.getStaffList();
 
-      if (isSignUp) {
-        if (nameField) nameField.classList.remove('hidden');
-        if (devTip) devTip.classList.remove('hidden');
-        if (submitBtn) submitBtn.textContent = 'Create Manager Account';
-        if (signUpBtn) signUpBtn.className = 'py-1.5 rounded-lg bg-white dark:bg-slate-700 text-brand-600 dark:text-brand-300 shadow-xs';
-        if (signInBtn) signInBtn.className = 'py-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-white';
-      } else {
-        if (nameField) nameField.classList.add('hidden');
-        if (devTip) devTip.classList.add('hidden');
-        if (submitBtn) submitBtn.textContent = 'Sign In to Command Center';
-        if (signInBtn) signInBtn.className = 'py-1.5 rounded-lg bg-white dark:bg-slate-700 text-brand-600 dark:text-brand-300 shadow-xs';
-        if (signUpBtn) signUpBtn.className = 'py-1.5 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-white';
-      }
-      lucide.createIcons();
-    }
+      const totalSales = orders.reduce((acc, curr) => acc + (curr.total || 0), 0);
+      const activeTickets = orders.filter(o => o.status === 'kitchen' || o.status === 'ready').length;
 
-    function showAlertBox(html, type = 'amber') {
-      const box = document.getElementById('login-alert-box');
-      if (!box) return;
-      if (!html) {
-        box.classList.add('hidden');
-        box.innerHTML = '';
-        return;
-      }
+      document.getElementById('m-metric-sales').innerText = `Br ${totalSales.toFixed(2)}`;
+      document.getElementById('m-metric-orders').innerText = activeTickets;
+      document.getElementById('m-metric-staff').innerText = staff.length;
 
-      box.classList.remove('hidden');
-      if (type === 'amber') {
-        box.className = 'p-3 rounded-xl text-[11px] text-left space-y-1 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200';
-      } else if (type === 'blue') {
-        box.className = 'p-3 rounded-xl text-[11px] text-left space-y-1 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-200';
-      } else {
-        box.className = 'p-3 rounded-xl text-[11px] text-left space-y-1 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-200';
-      }
-      box.innerHTML = html;
-      lucide.createIcons();
-    }
-
-    async function handleManagerLogin(e) {
-      e.preventDefault();
-      showAlertBox('');
-      const email = document.getElementById('login-email').value.trim();
-      const pass = document.getElementById('login-password').value.trim();
-      const submitBtn = document.getElementById('login-submit-btn');
-
-      submitBtn.disabled = true;
-      submitBtn.textContent = isSignUpMode ? 'Creating Account...' : 'Authenticating...';
-
-      let res;
-      if (isSignUpMode) {
-        const fullName = (document.getElementById('login-name').value || 'Restaurant Manager').trim();
-        res = await window.fasrSupabase.signUpManager(email, pass, fullName);
-      } else {
-        res = await window.fasrSupabase.signInManager(email, pass);
-      }
-
-      submitBtn.disabled = false;
-      submitBtn.textContent = isSignUpMode ? 'Create Manager Account' : 'Sign In to Command Center';
-
-      if (res && res.success) {
-        if (isSignUpMode && res.requiresEmailConfirmation) {
-          showAlertBox(`
-            <div class="font-bold text-blue-800 dark:text-blue-300 flex items-center gap-1.5">
-              <i data-lucide="mail-check" class="w-4 h-4 text-blue-600"></i>
-              <span>Verification Email Sent!</span>
-            </div>
-            <p class="text-slate-700 dark:text-slate-300 mt-1">A confirmation email was sent to <strong>${email}</strong>. Please confirm your email to sign in.</p>
-            <div class="mt-2 p-2 bg-blue-100/60 dark:bg-blue-900/40 rounded-lg text-blue-900 dark:text-blue-200">
-              <strong>Local Testing Tip:</strong> To skip confirmation emails for local dev, go to Supabase Dashboard &gt; <em>Authentication &gt; Providers &gt; Email</em> and turn <strong>"Confirm email" OFF</strong>.
-            </div>
-          `, 'blue');
-          window.fasrSound.playCashierDing();
-          window.showToast("Verification link sent! Check your email to confirm.", "info", 5000);
-          return;
-        }
-
-        document.getElementById('login-gate').classList.add('hidden');
-        window.fasrSound.playCashierDing();
-        window.showToast(isSignUpMode ? "Account created and logged in!" : "Welcome to Fasr Manager Command Center!", "success");
-        if (res.user) updateManagerProfileHeader(res.user);
-        updateSupabaseStatusBadges();
-      } else {
-        window.fasrSound.playBeep();
-        if (res && res.isUnconfirmedEmail) {
-          showAlertBox(`
-            <div class="font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
-              <i data-lucide="mail-warning" class="w-4 h-4 text-amber-600"></i>
-              <span>Email Not Confirmed Yet</span>
-            </div>
-            <p class="text-slate-700 dark:text-slate-300 mt-1">${res.error}</p>
-            <div class="mt-2 p-2 bg-amber-100/60 dark:bg-amber-900/40 rounded-lg text-amber-900 dark:text-amber-200">
-              <strong>Local Dev Tip:</strong> In your Supabase Dashboard &gt; <em>Authentication &gt; Providers &gt; Email</em>, toggle <strong>"Confirm email" OFF</strong> to allow immediate password sign-in without waiting for emails.
-            </div>
-          `, 'amber');
-        } else {
-          showAlertBox(`
-            <div class="font-bold text-rose-800 dark:text-rose-300 flex items-center gap-1.5">
-              <i data-lucide="alert-circle" class="w-4 h-4 text-rose-600"></i>
-              <span>Authentication Error</span>
-            </div>
-            <p class="text-slate-700 dark:text-slate-300 mt-0.5">${res ? res.error : "Authentication failed. Please verify credentials."}</p>
-          `, 'rose');
-        }
-        window.showToast(res ? (res.error || "Authentication failed.") : "Login failed.", "error", 5000);
+      if (reviews.length > 0) {
+        const avg = reviews.reduce((a, c) => a + c.rating, 0) / reviews.length;
+        document.getElementById('m-metric-rating').innerText = `${avg.toFixed(1)} ★`;
+        document.getElementById('m-metric-review-count').innerText = `${reviews.length} reviews`;
       }
     }
 
-    async function logoutManager() {
-      await window.fasrSupabase.signOutManager();
-      showAlertBox('');
-      setAuthMode(false);
-      document.getElementById('login-gate').classList.remove('hidden');
-      updateSupabaseStatusBadges();
-      window.showToast("Signed out successfully.", "info");
-    }
+    function renderMenuEditor() {
+      const items = window.fasrSync.getMenu();
+      const container = document.getElementById('m-menu-container');
 
-    function updateManagerProfileHeader(user) {
-      const emailEl = document.querySelector('aside .text-\\[10px\\]');
-      if (emailEl && user && user.email) {
-        emailEl.textContent = user.email;
-      }
-    }
-
-    // ==========================================
-    // SUPABASE MODAL & CONFIG MANAGEMENT
-    // ==========================================
-    function openSupabaseModal() {
-      const { url, anonKey } = window.fasrSupabase.getCredentials();
-      document.getElementById('cfg-supabase-url').value = url || '';
-      document.getElementById('cfg-supabase-key').value = anonKey || '';
-      document.getElementById('supabase-modal').classList.remove('hidden');
-    }
-
-    function closeSupabaseModal() {
-      document.getElementById('supabase-modal').classList.add('hidden');
-    }
-
-    function handleSaveSupabaseConfig(e) {
-      e.preventDefault();
-      const url = document.getElementById('cfg-supabase-url').value.trim();
-      const anonKey = document.getElementById('cfg-supabase-key').value.trim();
-
-      const ok = window.fasrSupabase.setCredentials(url, anonKey);
-      closeSupabaseModal();
-
-      if (ok) {
-        window.fasrSound.playCashierDing();
-        window.showToast("⚡ Supabase connected successfully!", "success");
-      } else {
-        window.fasrSound.playBeep();
-        window.showToast("Supabase client initialized with provided credentials.", "info");
-      }
-      updateSupabaseStatusBadges();
-    }
-
-    function handleClearSupabaseConfig() {
-      window.fasrSupabase.resetToDefaultCredentials();
-      closeSupabaseModal();
-      window.showToast("Reset to default online Supabase project.", "info");
-      updateSupabaseStatusBadges();
-    }
-
-    function updateSupabaseStatusBadges() {
-      const hasCreds = window.fasrSupabase.hasCredentials();
-      const isConnected = window.fasrSupabase.isConfigured || hasCreds;
-      const creds = window.fasrSupabase.getCredentials();
-      
-      // Topbar badge
-      const topbarDot = document.getElementById('topbar-supabase-dot');
-      const topbarText = document.getElementById('topbar-supabase-text');
-      if (topbarDot) topbarDot.className = `w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-500' : 'bg-amber-500'}`;
-      if (topbarText) topbarText.textContent = isConnected ? 'Supabase Connected' : 'Supabase Demo';
-
-      // Login gate badge
-      const gateBadge = document.getElementById('supabase-auth-badge');
-      const gateDot = document.getElementById('supabase-status-dot');
-      const gateLabel = document.getElementById('supabase-status-label');
-      const footerLabel = document.getElementById('login-footer-label');
-
-      if (gateBadge) {
-        if (isConnected) {
-          gateBadge.className = 'py-1 px-3 rounded-xl text-[11px] font-bold flex items-center justify-between border bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800';
-          if (gateDot) gateDot.className = 'w-2 h-2 rounded-full bg-emerald-500';
-          if (gateLabel) gateLabel.textContent = 'Supabase Auth Connected';
-          if (footerLabel) {
-            let host = '';
-            try { host = new URL(creds.url).hostname; } catch(e){}
-            footerLabel.innerHTML = `Supabase Project: <strong class="text-brand-600 dark:text-brand-400 font-mono text-[9px]">${host || 'Active'}</strong>`;
-          }
-        } else {
-          gateBadge.className = 'py-1 px-3 rounded-xl text-[11px] font-bold flex items-center justify-between border bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800';
-          if (gateDot) gateDot.className = 'w-2 h-2 rounded-full bg-amber-500';
-          if (gateLabel) gateLabel.textContent = 'Demo Mode (Local Auth)';
-          if (footerLabel) {
-            footerLabel.innerHTML = `Demo Fallback: <strong class="text-brand-600 dark:text-brand-400">admin@roastery.com / 1234</strong>`;
-          }
-        }
-      }
-    }
-
-    function openRlsModal() {
-      document.getElementById('rls-help-modal').classList.remove('hidden');
-    }
-
-    function closeRlsModal() {
-      document.getElementById('rls-help-modal').classList.add('hidden');
-    }
-
-    function copyRlsSql() {
-      const code = document.getElementById('rls-sql-code').textContent;
-      navigator.clipboard.writeText(code).then(() => {
-        const btn = document.getElementById('copy-rls-sql-btn');
-        const orig = btn.innerHTML;
-        btn.innerHTML = '<span>✅ Copied!</span>';
-        setTimeout(() => { btn.innerHTML = orig; }, 2500);
-        window.showToast("SQL copied to clipboard! Paste it into Supabase SQL Editor.", "success");
-      }).catch(() => {
-        window.showToast("Please manually select and copy the SQL code.", "info");
-      });
-    }
-
-    async function syncStaffWithSupabaseCloud() {
-      if (!window.fasrSupabase.isConfigured) {
-        window.fasrSound.playBeep();
-        window.showToast("Please connect your Supabase Project in 'Supabase Config' first.", "warning", 5000);
-        openSupabaseModal();
-        return;
-      }
-
-      const list = window.fasrSync.getStaffList();
-      window.showToast("Pushing staff records to Supabase...", "info");
-      const res = await window.fasrSupabase.syncStaffToDatabase(list);
-
-      const isSuccess = res === true || (res && res.success);
-
-      if (isSuccess) {
-        window.fasrSound.playCashierDing();
-        window.showToast(`✅ ${list.length} Staff records synced to Supabase database!`, "success");
-      } else {
-        window.fasrSound.playBeep();
-        const errMsg = (res && res.error) ? res.error : "Failed to push staff to Supabase.";
-        console.error("Staff sync error details:", res);
-
-        const lowerMsg = String(errMsg).toLowerCase();
-        if (lowerMsg.includes("row-level security") || lowerMsg.includes("policy") || lowerMsg.includes("permission denied") || res?.code === "42501") {
-          window.showToast("⚠️ Permission or RLS policy needed. Opening SQL fix...", "error", 6000);
-          openRlsModal();
-        } else if (lowerMsg.includes("does not exist") || res?.code === "42P01") {
-          window.showToast("⚠️ Table 'staff' does not exist in Supabase! Please run supabase_schema.sql.", "error", 8000);
-          openRlsModal();
-        } else {
-          window.showToast(`Sync failed: ${errMsg}`, "error", 6000);
-        }
-      }
-    }
-
-    function switchTab(tab) {
-      window.fasrSound.playBeep();
-      currentTab = tab;
-      const tabs = ['auth', 'menu', 'analytics', 'reviews'];
-      tabs.forEach(t => {
-        const view = document.getElementById(`tab-${t}-view`);
-        const navBtn = document.getElementById(`nav-${t}`);
-        if (t === tab) {
-          view.classList.remove('hidden');
-          navBtn.className = 'w-full px-3.5 py-2.5 rounded-xl bg-brand-600 text-white font-bold text-xs flex items-center gap-3 transition-colors shadow-sm';
-        } else {
-          view.classList.add('hidden');
-          navBtn.className = 'w-full px-3.5 py-2.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold text-xs flex items-center gap-3 transition-colors';
-        }
-      });
-
-      // Update header titles
-      const titles = {
-        auth: ['Cashier Terminal Security & Auth', 'Remote control cashier terminals, reset staff PINs'],
-        menu: ['Menu Catalog & Pricing (Br)', 'Manage dishes, prices in Ethiopian Birr, 86 availability'],
-        analytics: ['Sales Analytics & Financial Trends', 'Real-time revenue metrics, order velocity, and downloadable reports'],
-        reviews: ['Customer Feedback & Reviews', 'Live 1–5 star ratings submitted from customer waiting tracker']
-      };
-      document.getElementById('page-title').textContent = titles[tab][0];
-      document.getElementById('page-subtitle').textContent = titles[tab][1];
-      lucide.createIcons();
-    }
-
-    // TAB 1: AUTH & MULTI-STAFF MANAGEMENT LOGIC
-    function renderAuthTab() {
-      const auth = window.fasrSync.getCashierAuth();
-      const staffList = window.fasrSync.getStaffList();
-      const hasActiveStaff = staffList.some(s => s.status === 'active');
-      const statusText = document.getElementById('terminal-status-text');
-      const statusIcon = document.getElementById('terminal-status-icon');
-      const statusDesc = document.getElementById('terminal-last-unlocked');
-      const lockBtn = document.getElementById('remote-lock-btn');
-
-      if (!hasActiveStaff || auth.isLocked) {
-        if (!hasActiveStaff) {
-          statusText.textContent = 'ALL CASHIERS SUSPENDED';
-          statusText.className = 'text-2xl font-extrabold text-rose-600';
-          statusIcon.className = 'w-14 h-14 rounded-2xl bg-rose-100 dark:bg-rose-950/50 text-rose-600 flex items-center justify-center';
-          statusIcon.innerHTML = '<i data-lucide="shield-alert" class="w-7 h-7"></i>';
-          if (statusDesc) statusDesc.textContent = 'Every cashier account is suspended. Terminal is locked and cannot be unlocked until a cashier is activated.';
-        } else if (auth.isManagerLocked) {
-          statusText.textContent = 'LOCKED BY MANAGER';
-          statusText.className = 'text-2xl font-extrabold text-rose-600';
-          statusIcon.className = 'w-14 h-14 rounded-2xl bg-rose-100 dark:bg-rose-950/50 text-rose-600 flex items-center justify-center';
-          statusIcon.innerHTML = '<i data-lucide="shield-alert" class="w-7 h-7"></i>';
-          if (statusDesc) statusDesc.textContent = 'Cashier terminal forced logged out. Staff PIN login is restricted until unlocked.';
-        } else {
-          statusText.textContent = 'LOCKED (STANDBY)';
-          statusText.className = 'text-2xl font-extrabold text-amber-600';
-          statusIcon.className = 'w-14 h-14 rounded-2xl bg-amber-100 dark:bg-amber-950/50 text-amber-600 flex items-center justify-center';
-          statusIcon.innerHTML = '<i data-lucide="lock" class="w-7 h-7"></i>';
-          if (statusDesc) statusDesc.textContent = 'Cashier is on standby. Staff can unlock using their 4-digit PIN.';
-        }
-        lockBtn.className = `w-full md:w-auto px-6 py-3.5 ${!hasActiveStaff ? 'bg-slate-400 dark:bg-slate-700 cursor-not-allowed opacity-60' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/25'} text-white font-extrabold text-xs rounded-2xl shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95`;
-        lockBtn.innerHTML = '<i data-lucide="unlock" class="w-4 h-4"></i><span>Remote 1-Click Unlock Terminal</span>';
-      } else {
-        statusText.textContent = 'UNLOCKED / ACTIVE';
-        statusText.className = 'text-2xl font-extrabold text-emerald-600';
-        statusIcon.className = 'w-14 h-14 rounded-2xl bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 flex items-center justify-center';
-        statusIcon.innerHTML = '<i data-lucide="unlock" class="w-7 h-7"></i>';
-        if (statusDesc) statusDesc.textContent = auth.lastUnlockedAt ? `Terminal active (Unlocked ${new Date(auth.lastUnlockedAt).toLocaleTimeString()})` : 'Terminal active and ready for cashier operations';
-        lockBtn.className = 'w-full md:w-auto px-6 py-3.5 bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs rounded-2xl shadow-lg shadow-rose-500/25 flex items-center justify-center gap-2 transition-all active:scale-95';
-        lockBtn.innerHTML = '<i data-lucide="lock" class="w-4 h-4"></i><span>Remote 1-Click Lock Terminal</span>';
-      }
-
-      // Update staff count
-      document.getElementById('staff-total-count').textContent = `${staffList.length} Staff Member${staffList.length === 1 ? '' : 's'}`;
-
-      // Render staff table
-      const tbody = document.getElementById('staff-roster-tbody');
-      tbody.innerHTML = '';
-
-      if (staffList.length === 0) {
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="6" class="py-8 text-center text-slate-400">
-              No staff members registered. Click "Add Cashier / Staff" to create one.
-            </td>
-          </tr>
-        `;
-        lucide.createIcons();
-        return;
-      }
-
-      staffList.forEach(staff => {
-        const tr = document.createElement('tr');
-        tr.className = 'hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors';
-
-        const roleBadges = {
-          'Head Cashier': 'bg-blue-50 dark:bg-blue-950/40 text-brand-600 dark:text-brand-300 border-blue-200 dark:border-blue-800',
-          'Cashier': 'bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-300 border-purple-200 dark:border-purple-800',
-          'Cashier / Barista': 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-300 border-amber-200 dark:border-amber-800',
-          'Cashier / Server': 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
-          'Kitchen Lead': 'bg-orange-50 dark:bg-orange-950/40 text-orange-600 dark:text-orange-300 border-orange-200 dark:border-orange-800'
-        };
-        const badgeClass = roleBadges[staff.role] || 'bg-slate-100 text-slate-700 border-slate-200';
-
-        tr.innerHTML = `
-          <td class="py-3 px-4 flex items-center gap-3">
-            <img src="${staff.avatar}" alt="${staff.name}" class="w-9 h-9 rounded-full object-cover ring-2 ring-slate-100 dark:ring-slate-800 shrink-0" />
+      container.innerHTML = items.map(item => `
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-4 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <img src="${item.image}" class="w-12 h-12 rounded-2xl object-cover bg-slate-800">
             <div>
-              <span class="font-bold text-slate-900 dark:text-white block">${staff.name}</span>
-              <span class="text-[10px] text-slate-400 font-mono">@${staff.username}</span>
+              <h4 class="text-xs font-extrabold text-white">${item.name}</h4>
+              <p class="text-xs font-black text-orange-400">Br ${parseFloat(item.price).toFixed(2)}</p>
             </div>
-          </td>
-          <td class="py-3 px-4">
-            <span class="inline-block px-2.5 py-0.5 rounded-lg text-[10px] font-bold border ${badgeClass}">
-              ${staff.role}
-            </span>
-          </td>
-          <td class="py-3 px-4 font-semibold text-slate-600 dark:text-slate-300">
-            ${staff.terminal}
-          </td>
-          <td class="py-3 px-4">
-            <div class="flex items-center gap-1.5 font-mono font-bold text-slate-800 dark:text-slate-200">
-              <span id="pin-val-${staff.id}">••••</span>
-              <button onclick="togglePinVisibility('${staff.id}', '${staff.pin}')" class="p-1 text-slate-400 hover:text-brand-600" title="Reveal / Hide PIN">
-                <i data-lucide="eye" class="w-3.5 h-3.5"></i>
-              </button>
-            </div>
-          </td>
-          <td class="py-3 px-4">
-            <button onclick="toggleStaffAccess('${staff.id}')" class="px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors ${
-              staff.status === 'active'
-                ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
-                : 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800'
-            }">
-              ${staff.status === 'active' ? '● Active' : '✕ Suspended'}
-            </button>
-          </td>
-          <td class="py-3 px-4 text-right space-x-1">
-            <button onclick="openEditStaffModal('${staff.id}')" class="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-600 dark:text-slate-300 transition-colors" title="Edit Staff Details">
-              <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
-            </button>
-            <button onclick="deleteStaffPrompt('${staff.id}', '${staff.name}')" class="p-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 text-rose-600 transition-colors" title="Delete Staff Member">
-              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-            </button>
-          </td>
-        `;
-        tbody.appendChild(tr);
-      });
-
-      lucide.createIcons();
+          </div>
+          <button onclick="toggleDishStock('${item.id}', ${!item.inStock})" class="px-3 py-1.5 rounded-xl text-xs font-black uppercase transition-all ${item.inStock ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500' : 'bg-rose-600/20 text-rose-400 border border-rose-500'}">
+            ${item.inStock ? 'In Stock' : '86 (Sold Out)'}
+          </button>
+        </div>
+      `).join('');
     }
 
-    function togglePinVisibility(staffId, pin) {
-      const el = document.getElementById(`pin-val-${staffId}`);
-      if (!el) return;
-      if (el.textContent === '••••') {
-        el.textContent = pin;
+    async function toggleDishStock(itemId, nextState) {
+      const items = window.fasrSync.getMenu();
+      const item = items.find(i => i.id === itemId);
+      if (item) {
+        item.inStock = nextState;
+        await window.fasrSync.saveMenu([item]);
+      }
+    }
+
+    function renderStaffRoster() {
+      const staff = window.fasrSync.getStaffList();
+      const container = document.getElementById('m-staff-container');
+
+      container.innerHTML = staff.map(s => `
+        <div class="p-4 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <img src="${s.avatar}" class="w-10 h-10 rounded-2xl object-cover">
+            <div>
+              <h4 class="text-xs font-extrabold text-white">${s.name}</h4>
+              <p class="text-[11px] text-slate-400 font-medium">Role: ${s.role} • PIN: <span class="font-mono text-orange-400 font-bold">${s.pin}</span></p>
+            </div>
+          </div>
+          <button onclick="toggleStaff('${s.id}')" class="px-3 py-1.5 rounded-xl text-xs font-bold ${s.status === 'active' ? 'bg-slate-800 text-slate-300' : 'bg-rose-900 text-rose-300'}">
+            ${s.status === 'active' ? 'Active' : 'Suspended'}
+          </button>
+        </div>
+      `).join('');
+    }
+
+    function toggleStaff(id) {
+      window.fasrSync.toggleStaffStatus(id);
+    }
+
+    function renderReviews() {
+      const reviews = window.fasrSync.getReviews();
+      const container = document.getElementById('m-reviews-container');
+
+      container.innerHTML = reviews.map(r => `
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-4">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-white">${r.customerName} (${r.tableNumber})</span>
+            <span class="text-amber-400 text-xs font-black">${'★'.repeat(r.rating)}</span>
+          </div>
+          <p class="text-xs text-slate-300 mt-2">${r.comment}</p>
+        </div>
+      `).join('');
+    }
+
+    function syncLockState() {
+      const auth = window.fasrSync.getCashierAuth();
+      const btn = document.getElementById('manager-lock-toggle');
+      if (auth.isManagerLocked) {
+        btn.innerText = 'LOCKED';
+        btn.className = 'px-2.5 py-1 text-[11px] font-black rounded-xl bg-rose-600 text-white uppercase';
       } else {
-        el.textContent = '••••';
+        btn.innerText = 'UNLOCKED';
+        btn.className = 'px-2.5 py-1 text-[11px] font-black rounded-xl bg-emerald-600 text-white uppercase';
       }
     }
 
-    function toggleStaffAccess(staffId) {
-      const updated = window.fasrSync.toggleStaffStatus(staffId);
-      if (updated) {
-        window.fasrSound.playCashierDing();
-        if (updated.status === 'suspended') {
-          window.showToast(`${updated.name} access SUSPENDED. Cashier session terminated.`, "warning");
-        } else {
-          window.showToast(`${updated.name} access ACTIVATED.`, "success");
-        }
-        renderAuthTab();
-      }
-    }
-
-    function deleteStaffPrompt(staffId, staffName) {
-      window.showInPageModal({
-        title: "Delete Staff Member?",
-        content: `Are you sure you want to remove <strong>${staffName}</strong> from the staff roster? They will no longer be able to log in.`,
-        confirmText: "Delete Staff",
-        onConfirm: () => {
-          window.fasrSync.deleteStaffMember(staffId);
-          window.fasrSound.playBeep();
-          window.showToast(`Staff member ${staffName} removed.`, "info");
-          renderAuthTab();
-        }
-      });
+    async function toggleRemoteLock() {
+      const auth = window.fasrSync.getCashierAuth();
+      await window.fasrSync.setManagerLock(!auth.isManagerLocked);
     }
 
     function openAddStaffModal() {
-      document.getElementById('add-staff-modal').classList.remove('hidden');
-    }
-
-    function closeAddStaffModal() {
-      document.getElementById('add-staff-modal').classList.add('hidden');
-    }
-
-    function handleCreateStaffSubmit(e) {
-      e.preventDefault();
-      const name = document.getElementById('staff-name-input').value.trim();
-      const username = document.getElementById('staff-user-input').value.trim();
-      const pin = document.getElementById('staff-pin-new').value.trim();
-      const role = document.getElementById('staff-role-select').value;
-      const terminal = document.getElementById('staff-term-select').value;
-      const avatar = document.getElementById('staff-avatar-input').value.trim() || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120';
-
-      if (pin.length !== 4) {
-        window.showToast("Security PIN must be exactly 4 digits!", "warning");
-        return;
-      }
-
-      window.fasrSync.addStaffMember({
-        name,
-        username,
-        pin,
-        role,
-        terminal,
-        avatar
-      });
-
-      closeAddStaffModal();
-      window.fasrSound.playCashierDing();
-      window.showToast(`Staff member ${name} added successfully!`, "success");
-      
-      // Reset form
-      document.getElementById('staff-name-input').value = '';
-      document.getElementById('staff-user-input').value = '';
-      document.getElementById('staff-pin-new').value = '';
-      renderAuthTab();
-    }
-
-    function openEditStaffModal(staffId) {
-      const list = window.fasrSync.getStaffList();
-      const staff = list.find(s => s.id === staffId);
-      if (!staff) return;
-
-      document.getElementById('edit-staff-id').value = staff.id;
-      document.getElementById('edit-staff-name').value = staff.name;
-      document.getElementById('edit-staff-username').value = staff.username;
-      document.getElementById('edit-staff-pin').value = staff.pin;
-      document.getElementById('edit-staff-role').value = staff.role;
-      document.getElementById('edit-staff-terminal').value = staff.terminal;
-      document.getElementById('edit-staff-avatar').value = staff.avatar;
-
-      document.getElementById('edit-staff-modal').classList.remove('hidden');
-    }
-
-    function closeEditStaffModal() {
-      document.getElementById('edit-staff-modal').classList.add('hidden');
-    }
-
-    function handleEditStaffSubmit(e) {
-      e.preventDefault();
-      const id = document.getElementById('edit-staff-id').value;
-      const name = document.getElementById('edit-staff-name').value.trim();
-      const username = document.getElementById('edit-staff-username').value.trim();
-      const pin = document.getElementById('edit-staff-pin').value.trim();
-      const role = document.getElementById('edit-staff-role').value;
-      const terminal = document.getElementById('edit-staff-terminal').value;
-      const avatar = document.getElementById('edit-staff-avatar').value.trim();
-
-      if (pin.length !== 4) {
-        window.showToast("PIN must be exactly 4 digits!", "warning");
-        return;
-      }
-
-      window.fasrSync.updateStaffMember(id, {
-        name,
-        username,
-        pin,
-        role,
-        terminal,
-        avatar
-      });
-
-      closeEditStaffModal();
-      window.fasrSound.playCashierDing();
-      window.showToast(`Staff profile for ${name} updated!`, "success");
-      renderAuthTab();
-    }
-
-    function toggleRemoteCashierLock() {
-      const auth = window.fasrSync.getCashierAuth();
-      const next = !auth.isLocked;
-
-      if (!next) {
-        // Attempting to unlock terminal: verify at least one active cashier exists
-        const staffList = window.fasrSync.getStaffList();
-        const hasActiveStaff = staffList.some(s => s.status === 'active');
-        if (!hasActiveStaff) {
-          window.fasrSound.playBeep();
-          window.showToast("⛔ Cannot unlock terminal: All cashiers are currently suspended. Please activate at least one cashier first.", "error", 5000);
-          return;
-        }
-      }
-
-      const ok = window.fasrSync.setManagerLock(next);
-      if (!ok) {
-        window.fasrSound.playBeep();
-        window.showToast("⛔ Cannot unlock terminal: All cashiers are suspended. Activate a cashier first.", "error", 5000);
-        renderAuthTab();
-        return;
-      }
-
-      window.fasrSound.playCashierDing();
-      window.showToast(next ? "Cashier terminal LOCKED! Cashier logged out and PIN login disabled." : "Cashier terminal UNLOCKED and accessible.", next ? "warning" : "success");
-      renderAuthTab();
-    }
-
-    // TAB 2: MENU CATALOG LOGIC
-    function renderMenuTab() {
-      const menu = window.fasrSync.getMenu();
-      const tbody = document.getElementById('manager-menu-table');
-      tbody.innerHTML = '';
-
-      menu.forEach(item => {
-        const tr = document.createElement('tr');
-        tr.className = 'hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors';
-        tr.innerHTML = `
-          <td class="py-3 px-5 flex items-center gap-3">
-            <img src="${item.image}" alt="${item.name}" class="w-10 h-10 rounded-xl object-cover shrink-0" />
-            <div>
-              <span class="font-bold text-slate-900 dark:text-white block">${item.name}</span>
-              <span class="text-[10px] text-slate-400 truncate max-w-xs block">${item.description}</span>
-            </div>
-          </td>
-          <td class="py-3 px-4 font-semibold capitalize text-slate-600 dark:text-slate-300">${item.category}</td>
-          <td class="py-3 px-4">
-            <span class="font-extrabold text-slate-900 dark:text-white">Br ${item.price.toFixed(2)}</span>
-          </td>
-          <td class="py-3 px-4">
-            <button onclick="toggleItemStock('${item.id}')" class="px-2.5 py-1 rounded-lg text-[11px] font-bold ${
-              item.inStock 
-                ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
-                : 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800'
-            }">
-              ${item.inStock ? 'In Stock' : "86'd (Sold Out)"}
-            </button>
-          </td>
-          <td class="py-3 px-5 text-right space-x-1">
-            <button onclick="editDishPrice('${item.id}')" class="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-600 dark:text-slate-300" title="Edit Price">
-              <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
-            </button>
-            <button onclick="deleteDish('${item.id}')" class="p-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 text-rose-600" title="Delete Dish">
-              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-            </button>
-          </td>
-        `;
-        tbody.appendChild(tr);
-      });
-      lucide.createIcons();
-    }
-
-    function toggleItemStock(id) {
-      const menu = window.fasrSync.getMenu();
-      const target = menu.find(m => m.id === id);
-      if (target) {
-        target.inStock = !target.inStock;
-        window.fasrSync.saveMenu(menu);
-        renderMenuTab();
-        window.fasrSound.playCashierDing();
-        window.showToast(`${target.name} is now marked ${target.inStock ? 'IN STOCK' : 'SOLD OUT (86)'}!`, target.inStock ? 'success' : 'warning');
-      }
-    }
-
-    function editDishPrice(id) {
-      const menu = window.fasrSync.getMenu();
-      const target = menu.find(m => m.id === id);
-      if (!target) return;
-
-      window.showInPageModal({
-        title: `Edit Price: ${target.name}`,
-        content: `
-          <div class="space-y-3">
-            <p>Enter new price in Ethiopian Birr (Br):</p>
-            <input id="modal-edit-price" type="number" step="10" value="${target.price}" class="w-full px-3 py-2 border rounded-xl dark:bg-slate-800 font-bold text-sm" />
-          </div>
-        `,
-        confirmText: 'Save Price',
-        onConfirm: () => {
-          const val = parseFloat(document.getElementById('modal-edit-price').value);
-          if (val > 0) {
-            target.price = val;
-            window.fasrSync.saveMenu(menu);
-            window.showToast("Price updated successfully!", "success");
-            renderMenuTab();
-          }
-        }
-      });
-    }
-
-    function deleteDish(id) {
-      const menu = window.fasrSync.getMenu();
-      const target = menu.find(m => m.id === id);
-      if (!target) return;
-
-      window.showInPageModal({
-        title: `Delete Dish?`,
-        content: `Are you sure you want to remove "${target.name}" from the menu catalog?`,
-        confirmText: 'Delete Dish',
-        onConfirm: () => {
-          const next = menu.filter(m => m.id !== id);
-          window.fasrSync.saveMenu(next);
-          window.showToast(`"${target.name}" deleted.`, "info");
-          renderMenuTab();
-        }
-      });
-    }
-
-    function openAddDishModal() {
-      document.getElementById('add-dish-modal').classList.remove('hidden');
-    }
-
-    function closeAddDishModal() {
-      document.getElementById('add-dish-modal').classList.add('hidden');
-    }
-
-    function handleCreateDishSubmit(e) {
-      e.preventDefault();
-      const name = document.getElementById('dish-name').value.trim();
-      const category = document.getElementById('dish-cat').value;
-      const price = parseFloat(document.getElementById('dish-price').value) || 300;
-      const description = document.getElementById('dish-desc').value.trim() || 'Delicious traditional recipe.';
-      const image = document.getElementById('dish-img').value.trim() || 'https://images.unsplash.com/photo-1544025162-d76694265947?w=500';
-
-      const menu = window.fasrSync.getMenu();
-      menu.unshift({
-        id: `dish-${Date.now()}`,
-        name,
-        category,
-        price,
-        description,
-        image,
-        inStock: true
-      });
-
-      window.fasrSync.saveMenu(menu);
-      closeAddDishModal();
-      window.fasrSound.playCashierDing();
-      window.showToast(`"${name}" added to menu catalog!`, "success");
-      renderMenuTab();
-    }
-
-    // TAB 3: SALES ANALYTICS LOGIC
-    function renderAnalyticsTab() {
-      const orders = window.fasrSync.getOrders();
-      const totalRev = orders.reduce((sum, o) => sum + o.total, 0);
-      const avg = orders.length > 0 ? totalRev / orders.length : 0;
-
-      document.getElementById('kpi-gross-sales').textContent = `Br ${totalRev.toFixed(2)}`;
-      document.getElementById('kpi-orders-count').textContent = `${orders.length} Orders`;
-      document.getElementById('kpi-avg-ticket').textContent = `Br ${avg.toFixed(2)}`;
-
-      // Top dishes
-      const dishSales = {};
-      orders.forEach(o => {
-        o.items.forEach(i => {
-          dishSales[i.name] = (dishSales[i.name] || 0) + i.quantity;
+      const name = prompt("Cashier Full Name:");
+      const pin = prompt("Set 4-Digit Numeric PIN (e.g. 3344):");
+      if (name && pin && pin.length === 4) {
+        window.fasrSync.addStaffMember({
+          name,
+          username: name.toLowerCase().replace(/\s+/g, '_'),
+          pin,
+          role: "Terminal Cashier",
+          terminal: "Terminal 01",
+          avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100"
         });
-      });
-
-      const topList = Object.entries(dishSales).sort((a,b) => b[1] - a[1]).slice(0, 4);
-      const topContainer = document.getElementById('analytics-top-dishes');
-      topContainer.innerHTML = '';
-      topList.forEach(([dish, count], idx) => {
-        const row = document.createElement('div');
-        row.className = 'flex justify-between items-center p-2 rounded-xl bg-slate-50 dark:bg-slate-800';
-        row.innerHTML = `
-          <div class="flex items-center gap-2">
-            <span class="w-5 h-5 rounded-md bg-blue-100 text-brand-700 font-extrabold text-[10px] flex items-center justify-center">#${idx+1}</span>
-            <span class="font-bold text-slate-800 dark:text-slate-200">${dish}</span>
-          </div>
-          <span class="font-extrabold text-brand-600 dark:text-brand-400">${count} sold</span>
-        `;
-        topContainer.appendChild(row);
-      });
-    }
-
-    function downloadSalesCsv() {
-      const orders = window.fasrSync.getOrders();
-      const headers = ['Order Number', 'Date', 'Table', 'Customer', 'Subtotal (Br)', 'Tax (Br)', 'Total (Br)', 'Status'];
-      const rows = orders.map(o => [
-        o.ticketNumber,
-        o.createdAt,
-        o.tableNumber,
-        o.customerName || 'Guest',
-        o.subtotal,
-        o.tax,
-        o.total,
-        o.status
-      ]);
-
-      const csvContent = "data:text/csv;charset=utf-8," + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-      const encodedUri = encodeURI(csvContent);
-      const link = document.createElement("a");
-      link.setAttribute("href", encodedUri);
-      link.setAttribute("download", `fasr_monthly_sales_report_${new Date().toISOString().slice(0, 10)}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.showToast("Monthly sales CSV downloaded!", "success");
-    }
-
-    // TAB 4: REVIEWS AUDITING LOGIC (Categorized in Days + Lowered Stars at Top)
-    let reviewDayFilter = 'all'; // 'all', 'today', 'yesterday', 'older'
-    let reviewRatingFilter = 'all'; // 'all', 'low', 'mid', 'high'
-
-    function setReviewDayFilter(filter) {
-      window.fasrSound.playBeep();
-      reviewDayFilter = filter;
-      ['all', 'today', 'yesterday', 'older'].forEach(f => {
-        const btn = document.getElementById(`btn-day-${f}`);
-        if (!btn) return;
-        if (f === filter) {
-          btn.className = 'px-3 py-1.5 rounded-xl text-xs font-bold bg-brand-600 text-white shadow-xs transition-colors';
-        } else {
-          btn.className = 'px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors';
-        }
-      });
-      renderReviewsTab();
-    }
-
-    function setReviewStarFilter(filter) {
-      window.fasrSound.playBeep();
-      reviewRatingFilter = filter;
-      renderReviewsTab();
-    }
-
-    function parseReviewDate(isoStr) {
-      const d = new Date(isoStr);
-      const now = new Date();
-
-      const dMidnight = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-      const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const diffDays = Math.round((nowMidnight - dMidnight) / (1000 * 60 * 60 * 24));
-
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const dd = String(d.getDate()).padStart(2, '0');
-      const dateKey = `${yyyy}-${mm}-${dd}`;
-
-      const formattedDate = d.toLocaleDateString(undefined, {
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric'
-      });
-
-      let dayCategory = 'older';
-      let dayHeading = formattedDate;
-
-      if (diffDays <= 0) {
-        dayCategory = 'today';
-        dayHeading = `Today — ${formattedDate}`;
-      } else if (diffDays === 1) {
-        dayCategory = 'yesterday';
-        dayHeading = `Yesterday — ${formattedDate}`;
-      } else if (diffDays === 2) {
-        dayCategory = 'older';
-        dayHeading = `2 Days Ago — ${formattedDate}`;
-      } else {
-        dayCategory = 'older';
-        dayHeading = formattedDate;
       }
-
-      return {
-        dateKey,
-        diffDays,
-        dayCategory,
-        dayHeading,
-        timestamp: d.getTime(),
-        timeStr: d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      };
     }
-
-    function renderReviewsTab() {
-      const allReviews = window.fasrSync.getReviews();
-      const container = document.getElementById('manager-reviews-list');
-      if (!container) return;
-      container.innerHTML = '';
-
-      // Deduplicate reviews by id and signature
-      const seenIds = new Set();
-      const rawReviews = [];
-      (allReviews || []).forEach(r => {
-        if (!r || !r.id) return;
-        const sig = `${r.id}_${r.orderNumber}_${r.comment}`;
-        if (!seenIds.has(r.id) && !seenIds.has(sig)) {
-          seenIds.add(r.id);
-          seenIds.add(sig);
-          rawReviews.push(r);
-        }
-      });
-
-      if (!rawReviews || rawReviews.length === 0) {
-        container.innerHTML = `
-          <div class="bg-white dark:bg-slate-900 rounded-3xl p-12 border border-slate-200/80 dark:border-slate-800 text-center space-y-3">
-            <div class="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 mx-auto flex items-center justify-center">
-              <i data-lucide="message-square-off" class="w-6 h-6"></i>
-            </div>
-            <h4 class="text-sm font-extrabold text-slate-800 dark:text-white">No Customer Feedback Yet</h4>
-            <p class="text-xs text-slate-400">Reviews submitted from the customer waiting tracker will appear here categorized by days.</p>
-          </div>
-        `;
-        lucide.createIcons();
-        return;
-      }
-
-      // Calculate Top KPI Metrics across all reviews
-      const totalCount = rawReviews.length;
-      const avgRating = (rawReviews.reduce((sum, r) => sum + r.rating, 0) / totalCount).toFixed(1);
-      const lowCount = rawReviews.filter(r => r.rating <= 2).length;
-      const fiveCount = rawReviews.filter(r => r.rating === 5).length;
-
-      const totalCountEl = document.getElementById('rev-total-count');
-      const avgRatingEl = document.getElementById('rev-avg-rating');
-      const avgStarsEl = document.getElementById('rev-avg-stars');
-      const lowCountEl = document.getElementById('rev-low-count');
-      const fiveCountEl = document.getElementById('rev-five-count');
-      const kpiAvgRatingTab3 = document.getElementById('kpi-avg-rating');
-
-      if (totalCountEl) totalCountEl.textContent = totalCount;
-      if (avgRatingEl) avgRatingEl.textContent = avgRating;
-      if (avgStarsEl) avgStarsEl.textContent = '★'.repeat(Math.round(avgRating)) + '☆'.repeat(5 - Math.round(avgRating));
-      if (lowCountEl) lowCountEl.textContent = lowCount;
-      if (fiveCountEl) fiveCountEl.textContent = fiveCount;
-      if (kpiAvgRatingTab3) kpiAvgRatingTab3.textContent = `${avgRating} ★`;
-
-      // 1. Group reviews by Day Key
-      const dayMap = {};
-      rawReviews.forEach(review => {
-        const meta = parseReviewDate(review.timestamp);
-
-        // Apply filters
-        if (reviewDayFilter !== 'all' && meta.dayCategory !== reviewDayFilter) {
-          return;
-        }
-
-        if (reviewRatingFilter === 'low' && review.rating > 2) return;
-        if (reviewRatingFilter === 'mid' && review.rating !== 3) return;
-        if (reviewRatingFilter === 'high' && review.rating < 4) return;
-
-        if (!dayMap[meta.dateKey]) {
-          dayMap[meta.dateKey] = {
-            dateKey: meta.dateKey,
-            diffDays: meta.diffDays,
-            dayCategory: meta.dayCategory,
-            dayHeading: meta.dayHeading,
-            reviews: []
-          };
-        }
-
-        dayMap[meta.dateKey].reviews.push({ ...review, _meta: meta });
-      });
-
-      const dayGroups = Object.values(dayMap);
-
-      if (dayGroups.length === 0) {
-        container.innerHTML = `
-          <div class="bg-white dark:bg-slate-900 rounded-3xl p-10 border border-slate-200/80 dark:border-slate-800 text-center space-y-2">
-            <p class="text-xs font-bold text-slate-500">No reviews found matching the selected filter.</p>
-            <button onclick="setReviewDayFilter('all'); setReviewStarFilter('all');" class="text-xs text-brand-600 font-extrabold hover:underline">Reset Filters</button>
-          </div>
-        `;
-        lucide.createIcons();
-        return;
-      }
-
-      // 2. Sort Day Groups chronologically descending (newest day at top)
-      dayGroups.sort((a, b) => a.diffDays - b.diffDays || b.dateKey.localeCompare(a.dateKey));
-
-      // 3. For each day, SORT REVIEWS WITH LOWERED STARS AT THE TOP!
-      dayGroups.forEach(day => {
-        // Crucial requirement: "make the lowered stars appears at the top"
-        day.reviews.sort((a, b) => {
-          if (a.rating !== b.rating) {
-            return a.rating - b.rating; // Ascending star rating (1★, 2★, 3★, 4★, 5★) - Lower stars at top!
-          }
-          return new Date(b.timestamp) - new Date(a.timestamp); // Newer first for ties
-        });
-
-        const dayTotal = day.reviews.length;
-        const dayAvg = (day.reviews.reduce((acc, r) => acc + r.rating, 0) / dayTotal).toFixed(1);
-        const dayLowCount = day.reviews.filter(r => r.rating <= 2).length;
-
-        // Create Day Section Container
-        const daySection = document.createElement('div');
-        daySection.className = 'space-y-3';
-
-        // Day Section Header
-        const headerDiv = document.createElement('div');
-        headerDiv.className = 'flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-200/80 dark:border-slate-800';
-        headerDiv.innerHTML = `
-          <div class="flex items-center gap-2.5">
-            <div class="w-8 h-8 rounded-xl bg-brand-50 dark:bg-brand-950/40 text-brand-600 flex items-center justify-center font-bold">
-              <i data-lucide="calendar" class="w-4 h-4"></i>
-            </div>
-            <div>
-              <h4 class="text-sm font-extrabold text-slate-900 dark:text-white">${day.dayHeading}</h4>
-              <span class="text-[11px] font-medium text-slate-400">${dayTotal} review${dayTotal === 1 ? '' : 's'} logged</span>
-            </div>
-          </div>
-
-          <div class="flex items-center gap-2 flex-wrap">
-            <span class="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-              ⭐ ${dayAvg} / 5.0 avg
-            </span>
-            ${
-              dayLowCount > 0
-                ? `<span class="px-2.5 py-1 rounded-xl text-[11px] font-extrabold bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900 flex items-center gap-1 animate-pulse">
-                    <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>
-                    ${dayLowCount} Low Rating${dayLowCount === 1 ? '' : 's'} at Top
-                  </span>`
-                : `<span class="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-                    All Satisfied (No Complaints)
-                  </span>`
-            }
-          </div>
-        `;
-        daySection.appendChild(headerDiv);
-
-        // Day Cards List (Lowered stars at top!)
-        const cardsList = document.createElement('div');
-        cardsList.className = 'space-y-3';
-
-        day.reviews.forEach(r => {
-          const isLowRating = r.rating <= 2;
-          const isMidRating = r.rating === 3;
-
-          const card = document.createElement('div');
-          
-          if (isLowRating) {
-            // Critical low star review styling (pinned at top)
-            card.className = "bg-rose-50/20 dark:bg-rose-950/20 rounded-3xl p-5 border-2 border-rose-300 dark:border-rose-900/60 shadow-sm relative overflow-hidden transition-all hover:shadow-md space-y-2.5";
-            card.innerHTML = `
-              <div class="absolute top-0 left-0 bottom-0 w-1.5 bg-rose-500"></div>
-              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-rose-100 dark:border-rose-900/40">
-                <div class="flex items-center gap-2.5">
-                  <div class="w-8 h-8 rounded-full bg-rose-100 dark:bg-rose-950 text-rose-600 flex items-center justify-center font-bold text-xs ring-2 ring-rose-200 dark:ring-rose-800">
-                    ${r.customerName ? r.customerName.charAt(0) : 'C'}
-                  </div>
-                  <div>
-                    <div class="flex items-center gap-2">
-                      <span class="font-extrabold text-slate-900 dark:text-white text-xs">${r.customerName}</span>
-                      <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 dark:bg-rose-950/80 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800 flex items-center gap-1">
-                        <i data-lucide="alert-circle" class="w-3 h-3"></i>
-                        Priority Attention (${r.rating}★)
-                      </span>
-                    </div>
-                    <span class="text-[10px] font-bold text-slate-400">${r.tableNumber} • Ticket ${r.orderNumber}</span>
-                  </div>
-                </div>
-
-                <div class="flex items-center gap-2">
-                  <div class="text-rose-500 text-sm font-extrabold tracking-wider">
-                    ${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}
-                  </div>
-                  <span class="text-xs font-black text-rose-600 dark:text-rose-400 bg-rose-100/80 dark:bg-rose-900/40 px-2 py-0.5 rounded-lg border border-rose-200 dark:border-rose-800">
-                    ${r.rating}.0 / 5.0
-                  </span>
-                </div>
-              </div>
-
-              <p class="text-xs text-slate-800 dark:text-slate-100 font-medium leading-relaxed bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-rose-200/80 dark:border-rose-900/40 italic">
-                "${r.comment}"
-              </p>
-
-              <div class="text-[10px] text-slate-400 pt-1 flex items-center justify-between">
-                <span class="flex items-center gap-1 text-rose-600 dark:text-rose-400 font-bold">
-                  <i data-lucide="shield-alert" class="w-3.5 h-3.5"></i>
-                  Disappointed Customer — Review & follow-up recommended
-                </span>
-                <span class="font-mono text-slate-400">Logged at ${r._meta.timeStr}</span>
-              </div>
-            `;
-          } else if (isMidRating) {
-            // Neutral 3-star review
-            card.className = "bg-white dark:bg-slate-900 rounded-3xl p-5 border border-amber-200 dark:border-amber-900/50 shadow-sm relative overflow-hidden transition-all hover:shadow-md space-y-2.5";
-            card.innerHTML = `
-              <div class="absolute top-0 left-0 bottom-0 w-1.5 bg-amber-400"></div>
-              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
-                <div class="flex items-center gap-2.5">
-                  <div class="w-8 h-8 rounded-full bg-amber-50 dark:bg-amber-950 text-amber-600 flex items-center justify-center font-bold text-xs ring-1 ring-amber-200">
-                    ${r.customerName ? r.customerName.charAt(0) : 'C'}
-                  </div>
-                  <div>
-                    <div class="flex items-center gap-2">
-                      <span class="font-extrabold text-slate-900 dark:text-white text-xs">${r.customerName}</span>
-                      <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
-                        Neutral Feedback (3★)
-                      </span>
-                    </div>
-                    <span class="text-[10px] font-bold text-slate-400">${r.tableNumber} • Ticket ${r.orderNumber}</span>
-                  </div>
-                </div>
-
-                <div class="flex items-center gap-2">
-                  <div class="text-amber-400 text-sm font-extrabold tracking-wider">
-                    ★★★☆☆
-                  </div>
-                  <span class="text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-lg border border-amber-200 dark:border-amber-800">
-                    3.0 / 5.0
-                  </span>
-                </div>
-              </div>
-
-              <p class="text-xs text-slate-700 dark:text-slate-200 leading-relaxed italic">
-                "${r.comment}"
-              </p>
-
-              <div class="text-[10px] text-slate-400 pt-1 flex items-center justify-between">
-                <span>Verified Customer Dine-in</span>
-                <span class="font-mono text-slate-400">Logged at ${r._meta.timeStr}</span>
-              </div>
-            `;
-          } else {
-            // High 4 or 5-star review
-            card.className = "bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm relative overflow-hidden transition-all hover:shadow-md space-y-2.5";
-            card.innerHTML = `
-              <div class="absolute top-0 left-0 bottom-0 w-1.5 bg-emerald-500"></div>
-              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
-                <div class="flex items-center gap-2.5">
-                  <div class="w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center font-bold text-xs ring-1 ring-emerald-200">
-                    ${r.customerName ? r.customerName.charAt(0) : 'C'}
-                  </div>
-                  <div>
-                    <div class="flex items-center gap-2">
-                      <span class="font-extrabold text-slate-900 dark:text-white text-xs">${r.customerName}</span>
-                      <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-                        ${r.rating === 5 ? '★ Delighted (5★)' : 'Positive (4★)'}
-                      </span>
-                    </div>
-                    <span class="text-[10px] font-bold text-slate-400">${r.tableNumber} • Ticket ${r.orderNumber}</span>
-                  </div>
-                </div>
-
-                <div class="flex items-center gap-2">
-                  <div class="text-amber-400 text-sm font-extrabold tracking-wider">
-                    ${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}
-                  </div>
-                  <span class="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-lg border border-emerald-200 dark:border-emerald-800">
-                    ${r.rating}.0 / 5.0
-                  </span>
-                </div>
-              </div>
-
-              <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed italic">
-                "${r.comment}"
-              </p>
-
-              <div class="text-[10px] text-slate-400 pt-1 flex items-center justify-between">
-                <span class="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
-                  <i data-lucide="check-circle" class="w-3 h-3"></i> Verified Customer Dine-in
-                </span>
-                <span class="font-mono text-slate-400">Logged at ${r._meta.timeStr}</span>
-              </div>
-            `;
-          }
-
-          cardsList.appendChild(card);
-        });
-
-        daySection.appendChild(cardsList);
-        container.appendChild(daySection);
-      });
-
-      lucide.createIcons();
-    }
-
-    // Launch
-    window.addEventListener('DOMContentLoaded', init);
   </script>
 </body>
 </html>
