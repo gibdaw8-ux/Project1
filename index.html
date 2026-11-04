@@ -3,337 +3,640 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Fasr Kitchen & Bar | Order Online</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js"></script>
-  <script src="sync.js"></script>
-</head>
-<body class="bg-slate-50 text-slate-800 antialiased min-h-screen pb-28">
+  <title>Fasr orders — Kitchen & Bar | Customer Menu & Tracker</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍽️</text></svg>">
 
-  <!-- Sticky Top Header -->
-  <header class="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200 px-4 py-3 flex items-center justify-between shadow-xs">
-    <div class="flex items-center gap-3">
-      <div class="w-10 h-10 rounded-2xl bg-orange-600 text-white flex items-center justify-center font-black text-xl shadow-md">F</div>
-      <div>
-        <h1 class="text-sm font-extrabold tracking-tight text-slate-900 leading-none">Fasr Orders</h1>
-        <p class="text-[11px] font-medium text-slate-500 mt-0.5">Ethiopian Kitchen & Bar</p>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'media',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f5ff',
+              100: '#e0ebff',
+              200: '#c7dafe',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Google Fonts & Lucide Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    /* Hide scrollbar for category pills */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 min-h-screen pb-32 transition-colors duration-200">
+
+  <!-- Include Shared Sync Engine -->
+  <script src="sync.js"></script>
+
+  <!-- App Header -->
+  <header class="sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 px-4 py-3.5 transition-colors">
+    <div class="max-w-4xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-2xl bg-brand-600 flex items-center justify-center text-white shadow-md shadow-brand-500/20">
+          <i data-lucide="utensils" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h1 class="text-base font-extrabold tracking-tight text-slate-900 dark:text-white leading-tight">
+            Fasr orders
+          </h1>
+          <p class="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+            Kitchen & Bar • Table Ordering
+          </p>
+        </div>
       </div>
-    </div>
-    <div class="flex items-center gap-2">
-      <div id="table-badge" class="px-3 py-1 bg-orange-50 border border-orange-200 text-orange-700 text-xs font-bold rounded-xl flex items-center gap-1.5">
-        <span class="w-2 h-2 rounded-full bg-orange-500"></span>
-        <span id="active-table-text">Table 04</span>
+
+      <!-- Quick Status Badge or Switcher -->
+      <div id="header-tracker-btn" class="hidden">
+        <button onclick="showTrackerView()" class="px-3 py-1.5 bg-blue-50 dark:bg-blue-900/40 text-brand-600 dark:text-brand-400 border border-blue-200 dark:border-blue-800 rounded-xl text-xs font-bold flex items-center gap-1.5 animate-pulse">
+          <i data-lucide="clock" class="w-3.5 h-3.5"></i>
+          <span id="header-order-badge">Active Order</span>
+        </button>
       </div>
-      <button onclick="openTablePicker()" class="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors">
-        <svg class="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-      </button>
     </div>
   </header>
 
-  <!-- Active Order Live Tracker Banner -->
-  <div id="live-tracker-banner" class="hidden px-4 mt-4">
-    <div class="bg-slate-900 text-white rounded-2xl p-4 shadow-xl border border-slate-800 flex items-center justify-between">
-      <div>
-        <div class="flex items-center gap-2">
-          <span class="relative flex h-2.5 w-2.5">
-            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-          </span>
-          <span class="text-[11px] font-extrabold tracking-wider uppercase text-emerald-400" id="tracker-ticket">TICKET FS-828</span>
-        </div>
-        <p class="text-xs font-semibold text-slate-300 mt-1" id="tracker-status">In Kitchen: Preparing your dishes</p>
+  <!-- MAIN CONTAINER -->
+  <main class="max-w-4xl mx-auto px-4 py-5">
+
+    <!-- VIEW 1: DIGITAL MENU VIEW -->
+    <div id="menu-view" class="space-y-5">
+      <!-- Search Box -->
+      <div class="relative">
+        <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+        <input
+          id="search-input"
+          type="text"
+          placeholder="Search for Tibs, Doro Wat, Spris, Cocktails..."
+          class="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 shadow-xs"
+        />
       </div>
-      <button onclick="openTrackerModal()" class="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-all">Track</button>
-    </div>
-  </div>
 
-  <!-- Category Nav -->
-  <div class="px-4 mt-4">
-    <div class="flex gap-2 overflow-x-auto pb-1 no-scrollbar text-xs font-bold" id="cat-chips">
-      <button onclick="filterCategory('all')" class="cat-btn active px-4 py-2 rounded-xl bg-orange-600 text-white shadow-xs">All Dishes</button>
-      <button onclick="filterCategory('lunch')" class="cat-btn px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-100">Lunch</button>
-      <button onclick="filterCategory('dinner')" class="cat-btn px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-100">Dinner</button>
-      <button onclick="filterCategory('fast_food')" class="cat-btn px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-100">Fast Food</button>
-      <button onclick="filterCategory('beverages')" class="cat-btn px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-100">Beverages</button>
-      <button onclick="filterCategory('dessert')" class="cat-btn px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-100">Dessert</button>
-    </div>
-  </div>
+      <!-- Category Filter Pills -->
+      <div class="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 text-xs font-bold" id="category-pills">
+        <button onclick="setCategory('all')" data-cat="all" class="cat-pill px-4 py-2 rounded-xl bg-brand-600 text-white whitespace-nowrap shadow-sm">All Dishes</button>
+        <button onclick="setCategory('lunch')" data-cat="lunch" class="cat-pill px-4 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 whitespace-nowrap">Lunch & Tibs</button>
+        <button onclick="setCategory('dinner')" data-cat="dinner" class="cat-pill px-4 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 whitespace-nowrap">Dinner Specials</button>
+        <button onclick="setCategory('fast_food')" data-cat="fast_food" class="cat-pill px-4 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 whitespace-nowrap">Fast Food & Burgers</button>
+        <button onclick="setCategory('beverages')" data-cat="beverages" class="cat-pill px-4 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 whitespace-nowrap">Bar & Beverages</button>
+        <button onclick="setCategory('dessert')" data-cat="dessert" class="cat-pill px-4 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 whitespace-nowrap">Desserts</button>
+      </div>
 
-  <!-- Menu Grid -->
-  <main class="px-4 mt-5">
-    <div id="menu-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      <!-- Injected by JavaScript -->
+      <!-- Food Items Grid -->
+      <div id="food-grid" class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+        <!-- Injected via JavaScript -->
+      </div>
     </div>
+
+    <!-- VIEW 2: LIVE WAITING TRACKER VIEW -->
+    <div id="tracker-view" class="hidden space-y-6 animate-in fade-in duration-200">
+      <!-- Order Banner -->
+      <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm text-center relative overflow-hidden">
+        <div class="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-blue-500 via-brand-600 to-indigo-500"></div>
+        <span class="text-[11px] font-extrabold uppercase tracking-widest text-brand-600 dark:text-brand-400 bg-blue-50 dark:bg-blue-900/40 px-3 py-1 rounded-full">
+          Live Order Status
+        </span>
+        <h2 id="tracker-ticket-number" class="text-3xl font-extrabold text-slate-900 dark:text-white mt-2">
+          #FASR-104
+        </h2>
+        <p id="tracker-table-number" class="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-0.5">
+          Table 4 • Dine-in
+        </p>
+
+        <!-- Dynamic Status Alert Box -->
+        <div id="tracker-status-box" class="mt-5 p-4 rounded-2xl bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 text-brand-800 dark:text-brand-300 font-bold text-xs flex items-center justify-center gap-2">
+          <i data-lucide="chef-hat" class="w-4 h-4 animate-bounce"></i>
+          <span id="tracker-status-text">Your order is being prepared in the kitchen...</span>
+        </div>
+      </div>
+
+      <!-- 3-Step Visual Progress Tracker -->
+      <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm">
+        <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-6 text-center">
+          Preparation Journey
+        </h3>
+
+        <div class="relative flex items-center justify-between max-w-sm mx-auto">
+          <!-- Progress Line Background -->
+          <div class="absolute left-6 right-6 top-1/2 -translate-y-1/2 h-1 bg-slate-200 dark:bg-slate-800 -z-0"></div>
+          <div id="tracker-progress-fill" class="absolute left-6 top-1/2 -translate-y-1/2 h-1 bg-brand-600 transition-all duration-500 -z-0" style="width: 50%;"></div>
+
+          <!-- Step 1: Placed -->
+          <div class="flex flex-col items-center gap-2 z-10">
+            <div id="step-node-1" class="w-11 h-11 rounded-2xl bg-brand-600 text-white flex items-center justify-center shadow-md shadow-brand-500/20 text-xs font-bold">
+              <i data-lucide="check" class="w-5 h-5 stroke-[3]"></i>
+            </div>
+            <span class="text-[11px] font-bold text-slate-700 dark:text-slate-300 text-center">Order<br>Placed</span>
+          </div>
+
+          <!-- Step 2: In Kitchen -->
+          <div class="flex flex-col items-center gap-2 z-10">
+            <div id="step-node-2" class="w-11 h-11 rounded-2xl bg-brand-600 text-white flex items-center justify-center shadow-md shadow-brand-500/20 text-xs font-bold">
+              <i data-lucide="flame" class="w-5 h-5"></i>
+            </div>
+            <span class="text-[11px] font-bold text-slate-700 dark:text-slate-300 text-center">In Kitchen<br>(Cooking)</span>
+          </div>
+
+          <!-- Step 3: Ready -->
+          <div class="flex flex-col items-center gap-2 z-10">
+            <div id="step-node-3" class="w-11 h-11 rounded-2xl bg-slate-200 dark:bg-slate-800 text-slate-400 flex items-center justify-center text-xs font-bold transition-all">
+              <i data-lucide="bell" class="w-5 h-5"></i>
+            </div>
+            <span class="text-[11px] font-bold text-slate-400 dark:text-slate-500 text-center">Ready to<br>Serve!</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ordered Items Receipt View -->
+      <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3">
+        <h4 class="text-xs font-extrabold uppercase tracking-wider text-slate-500">Order Summary</h4>
+        <div id="tracker-items-list" class="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+          <!-- Injected dynamically -->
+        </div>
+        <div class="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-between font-extrabold text-sm text-slate-900 dark:text-white">
+          <span>Total</span>
+          <span id="tracker-total-amount" class="text-brand-600 dark:text-brand-400">Br 0.00</span>
+        </div>
+      </div>
+
+      <!-- 1–5 Star Review & Feedback Form -->
+      <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
+        <div>
+          <h3 class="text-base font-extrabold text-slate-900 dark:text-white">Rate Your Experience</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Your feedback helps our kitchen & bar maintain 5-star quality.</p>
+        </div>
+
+        <!-- Star selector -->
+        <div class="flex items-center gap-2" id="star-rating-container">
+          <button type="button" onclick="setRating(1)" class="star-btn p-2 text-amber-400 hover:scale-125 transition-transform"><i data-lucide="star" class="w-7 h-7 fill-amber-400"></i></button>
+          <button type="button" onclick="setRating(2)" class="star-btn p-2 text-amber-400 hover:scale-125 transition-transform"><i data-lucide="star" class="w-7 h-7 fill-amber-400"></i></button>
+          <button type="button" onclick="setRating(3)" class="star-btn p-2 text-amber-400 hover:scale-125 transition-transform"><i data-lucide="star" class="w-7 h-7 fill-amber-400"></i></button>
+          <button type="button" onclick="setRating(4)" class="star-btn p-2 text-amber-400 hover:scale-125 transition-transform"><i data-lucide="star" class="w-7 h-7 fill-amber-400"></i></button>
+          <button type="button" onclick="setRating(5)" class="star-btn p-2 text-amber-400 hover:scale-125 transition-transform"><i data-lucide="star" class="w-7 h-7 fill-amber-400"></i></button>
+        </div>
+
+        <textarea
+          id="review-comment"
+          rows="3"
+          placeholder="What did you love most about your food or drinks? (Optional)"
+          class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+        ></textarea>
+
+        <button
+          onclick="submitCustomerReview()"
+          id="submit-review-btn"
+          class="w-full py-3 bg-brand-600 hover:bg-brand-700 active:scale-[0.99] text-white font-bold text-xs rounded-xl shadow-md shadow-brand-500/20 flex items-center justify-center gap-2 transition-all"
+        >
+          <i data-lucide="send" class="w-4 h-4"></i>
+          <span>Submit Review</span>
+        </button>
+      </div>
+
+      <!-- Back to Menu button -->
+      <div class="text-center pt-2">
+        <button
+          onclick="showMenuView()"
+          class="text-xs font-bold text-brand-600 dark:text-brand-400 hover:underline inline-flex items-center gap-1"
+        >
+          <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
+          <span>Order More Items from Menu</span>
+        </button>
+      </div>
+    </div>
+
   </main>
 
-  <!-- Sticky Bottom Cart Button -->
-  <div id="cart-float-bar" class="fixed bottom-4 inset-x-4 max-w-lg mx-auto z-40 hidden">
-    <button onclick="toggleCartDrawer(true)" class="w-full bg-slate-900 text-white p-4 rounded-3xl shadow-2xl flex items-center justify-between hover:bg-slate-800 transition-all">
-      <div class="flex items-center gap-3">
-        <span id="cart-pill-count" class="w-7 h-7 bg-orange-600 rounded-full flex items-center justify-center text-xs font-black">0</span>
-        <span class="text-xs font-bold text-slate-300">View Selected Order</span>
-      </div>
-      <div class="text-sm font-black text-white" id="cart-pill-total">Br 0.00</div>
-    </button>
-  </div>
-
-  <!-- Cart Drawer Modal -->
-  <div id="cart-drawer" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end justify-center hidden">
-    <div class="bg-white rounded-t-3xl max-w-lg w-full max-h-[85vh] flex flex-col p-6 shadow-2xl animate-in slide-in-from-bottom duration-300">
-      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
-        <div>
-          <h2 class="text-base font-extrabold text-slate-900">Your Ticket</h2>
-          <p class="text-xs text-slate-400 mt-0.5" id="cart-table-info">Table 04</p>
+  <!-- FLOATING BOTTOM TRAY (CART & ORDER PLACEMENT) -->
+  <div id="floating-cart-tray" class="fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 p-4 transition-all transform duration-300">
+    <div class="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+      <!-- Table # Input & Diner Name -->
+      <div class="flex items-center gap-2 w-full sm:w-auto">
+        <div class="relative w-36 shrink-0">
+          <input
+            id="table-input"
+            type="text"
+            placeholder="Table #"
+            value="Table 4"
+            class="w-full px-3 py-2.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white text-center focus:outline-none focus:ring-2 focus:ring-brand-500"
+          />
         </div>
-        <button onclick="toggleCartDrawer(false)" class="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100">
-          <svg class="w-5 h-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
-        </button>
-      </div>
-
-      <div id="cart-items-list" class="flex-1 overflow-y-auto py-4 space-y-3 divide-y divide-slate-100">
-        <!-- Rendered items -->
+        <div class="flex-1 sm:w-44">
+          <input
+            id="customer-name-input"
+            type="text"
+            placeholder="Your Name (Optional)"
+            class="w-full px-3 py-2.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+          />
+        </div>
       </div>
 
-      <div class="pt-4 border-t border-slate-100 space-y-2 text-xs">
-        <div class="flex justify-between text-slate-500">
-          <span>Subtotal</span>
-          <span id="cart-subtotal" class="font-bold">Br 0.00</span>
-        </div>
-        <div class="flex justify-between text-slate-500">
-          <span>VAT (10%)</span>
-          <span id="cart-tax" class="font-bold">Br 0.00</span>
-        </div>
-        <div class="flex justify-between text-base font-black text-slate-900 pt-1">
-          <span>Total</span>
-          <span id="cart-total" class="text-orange-600">Br 0.00</span>
-        </div>
-        <button id="submit-order-btn" onclick="submitOrder()" class="w-full mt-3 py-3.5 bg-orange-600 hover:bg-orange-700 active:scale-95 text-white font-extrabold text-sm rounded-2xl shadow-lg transition-all">
-          Confirm & Send to Kitchen
-        </button>
-      </div>
+      <!-- Action Button -->
+      <button
+        id="place-order-btn"
+        onclick="placeCustomerOrder()"
+        class="w-full sm:w-auto px-6 py-3 bg-brand-600 hover:bg-brand-700 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-brand-500/25 flex items-center justify-between sm:justify-center gap-3 transition-all active:scale-[0.99]"
+      >
+        <span id="tray-item-count" class="bg-white/20 px-2 py-0.5 rounded-lg text-[11px]">0 items</span>
+        <span>Place Order</span>
+        <span id="tray-total-price" class="text-sm font-extrabold">Br 0.00</span>
+      </button>
     </div>
   </div>
 
+  <!-- SCRIPT LOGIC -->
   <script>
-    let activeCategory = 'all';
-    let currentTable = 'Table 04';
-    let cart = {};
-    let trackedOrderId = localStorage.getItem('fasr_active_order_id') || null;
+    // State
+    let cart = {}; // { [itemId]: quantity }
+    let currentCategory = 'all';
+    let searchQuery = '';
+    let currentRating = 5;
+    let activeOrder = null;
 
-    window.addEventListener('DOMContentLoaded', async () => {
-      // URL Parameter overrides: ?table=7 or ?orderId=uuid
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('table')) {
-        currentTable = `Table ${params.get('table').padStart(2, '0')}`;
-      }
-      if (params.get('orderId')) {
-        trackedOrderId = params.get('orderId');
-        localStorage.setItem('fasr_active_order_id', trackedOrderId);
-      }
+    // Load active order if previously placed
+    const savedOrderId = localStorage.getItem('fasr_active_order_id');
 
-      document.getElementById('active-table-text').innerText = currentTable;
-      document.getElementById('cart-table-info').innerText = currentTable;
-
-      await window.fasrSync.ready;
+    function init() {
       renderMenu();
-      checkActiveOrder();
+      if (savedOrderId) {
+        const orders = window.fasrSync.getOrders();
+        const found = orders.find(o => o.id === savedOrderId);
+        if (found) {
+          activeOrder = found;
+          showTrackerView();
+        }
+      }
+      lucide.createIcons();
 
+      // Listen to cross-page updates
       window.fasrSync.subscribe((event) => {
-        if (event.type === 'MENU_CHANGED') renderMenu();
-        if (event.type === 'ORDER_STATUS_CHANGED' && event.payload.orderId === trackedOrderId) {
-          checkActiveOrder();
-          if (event.payload.status === 'ready') window.fasrSound.playReadyAlarm();
+        if (event.type === 'ORDER_STATUS_CHANGED') {
+          if (activeOrder && activeOrder.id === event.payload.orderId) {
+            activeOrder.status = event.payload.status;
+            renderTracker();
+            if (event.payload.status === 'ready') {
+              // Trigger loud alarm and vibration!
+              window.fasrSound.playReadyAlarm();
+              if (navigator.vibrate) {
+                navigator.vibrate([200, 100, 200, 100, 400]);
+              }
+              window.showToast("🔔 Your order is READY! Server is bringing it to your table.", "success", 6000);
+            }
+          }
+        } else if (event.type === 'MENU_CHANGED') {
+          // Remove any items that were just marked Sold Out by the manager
+          const menu = window.fasrSync.getMenu();
+          let removedAny = false;
+          Object.keys(cart).forEach(id => {
+            const item = menu.find(m => m.id === id);
+            if (item && item.inStock === false) {
+              delete cart[id];
+              removedAny = true;
+            }
+          });
+          if (removedAny) {
+            window.fasrSound.playBeep();
+            window.showToast("Notice: Sold-out dishes were removed from your order.", "warning");
+          }
+          renderMenu();
         }
       });
-    });
+
+      document.getElementById('search-input').addEventListener('input', (e) => {
+        searchQuery = e.target.value.toLowerCase();
+        renderMenu();
+      });
+    }
+
+    function setCategory(cat) {
+      currentCategory = cat;
+      document.querySelectorAll('.cat-pill').forEach(btn => {
+        if (btn.getAttribute('data-cat') === cat) {
+          btn.className = 'cat-pill px-4 py-2 rounded-xl bg-brand-600 text-white whitespace-nowrap shadow-sm font-bold';
+        } else {
+          btn.className = 'cat-pill px-4 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 whitespace-nowrap';
+        }
+      });
+      renderMenu();
+    }
 
     function renderMenu() {
-      const items = window.fasrSync.getMenu();
-      const grid = document.getElementById('menu-grid');
-      const filtered = activeCategory === 'all' ? items : items.filter(i => i.category === activeCategory);
+      const menu = window.fasrSync.getMenu();
+      const grid = document.getElementById('food-grid');
+      grid.innerHTML = '';
 
-      grid.innerHTML = filtered.map(item => `
-        <div class="bg-white rounded-3xl p-3.5 border border-slate-200/80 shadow-xs flex flex-col justify-between ${!item.inStock ? 'opacity-50 grayscale' : ''}">
-          <div class="relative aspect-4/3 rounded-2xl overflow-hidden bg-slate-100">
-            <img src="${item.image}" alt="${item.name}" class="w-full h-full object-cover">
-            ${!item.inStock ? '<span class="absolute top-2 right-2 px-2 py-1 bg-rose-600 text-white font-black text-[10px] rounded-lg uppercase">Sold Out</span>' : ''}
+      const filtered = menu.filter(item => {
+        const matchesCat = currentCategory === 'all' || item.category === currentCategory;
+        const matchesSearch = !searchQuery || item.name.toLowerCase().includes(searchQuery) || item.description.toLowerCase().includes(searchQuery);
+        return matchesCat && matchesSearch;
+      });
+
+      if (filtered.length === 0) {
+        grid.innerHTML = `
+          <div class="col-span-full py-12 text-center text-slate-400 text-xs">
+            No dishes found matching your selection.
           </div>
-          <div class="mt-3 flex-1">
-            <div class="flex items-start justify-between gap-1">
-              <h3 class="text-sm font-extrabold text-slate-900 leading-snug">${item.name}</h3>
-              <span class="text-sm font-black text-orange-600 shrink-0">Br ${parseFloat(item.price).toFixed(2)}</span>
+        `;
+        return;
+      }
+
+      filtered.forEach(item => {
+        const qty = cart[item.id] || 0;
+        const isSoldOut = item.inStock === false;
+
+        const card = document.createElement('div');
+        card.className = `rounded-3xl p-3.5 border shadow-sm transition-all flex gap-3.5 relative ${
+          isSoldOut 
+            ? 'bg-rose-50/20 dark:bg-rose-950/10 border-rose-200/80 dark:border-rose-900/40 opacity-75' 
+            : 'bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800 hover:shadow-md'
+        }`;
+        
+        card.innerHTML = `
+          <!-- Dish Photo & Sold Out Banner -->
+          <div class="relative w-24 h-24 rounded-2xl overflow-hidden shrink-0 bg-slate-100 dark:bg-slate-800 ring-1 ring-slate-100 dark:ring-slate-800">
+            <img src="${item.image}" alt="${item.name}" class="w-full h-full object-cover ${isSoldOut ? 'grayscale contrast-75 brightness-90' : ''}" />
+            ${isSoldOut ? `
+              <div class="absolute inset-0 bg-slate-950/60 backdrop-blur-[1px] flex items-center justify-center p-1 text-center">
+                <span class="text-[9px] font-black text-white bg-rose-600 px-1.5 py-0.5 rounded uppercase tracking-wider shadow-sm">
+                  SOLD OUT
+                </span>
+              </div>
+            ` : ''}
+          </div>
+
+          <div class="flex-1 flex flex-col justify-between min-w-0">
+            <div>
+              <div class="flex items-center justify-between gap-1">
+                <h4 class="text-sm font-bold ${isSoldOut ? 'text-slate-500 dark:text-slate-400 line-through' : 'text-slate-900 dark:text-white'} truncate">
+                  ${item.name}
+                </h4>
+                ${isSoldOut ? `
+                  <span class="text-[9px] font-extrabold text-rose-600 dark:text-rose-400 bg-rose-100 dark:bg-rose-950/60 px-1.5 py-0.2 rounded uppercase shrink-0">
+                    86'd
+                  </span>
+                ` : ''}
+              </div>
+              <p class="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2 mt-0.5 leading-relaxed">${item.description}</p>
             </div>
-            <p class="text-[11px] text-slate-500 mt-1 line-clamp-2">${item.description || ''}</p>
+
+            <!-- Price & Order Control -->
+            <div class="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
+              <span class="text-sm font-extrabold ${isSoldOut ? 'text-slate-400 dark:text-slate-500' : 'text-brand-600 dark:text-brand-400'}">
+                Br ${item.price.toFixed(2)}
+              </span>
+
+              ${isSoldOut ? `
+                <button 
+                  type="button" 
+                  disabled 
+                  class="text-[10px] font-extrabold uppercase text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 px-2.5 py-1 rounded-xl cursor-not-allowed select-none"
+                  title="Item is sold out"
+                >
+                  Sold Out
+                </button>
+              ` : qty > 0 ? `
+                <div class="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 gap-1 border border-slate-200 dark:border-slate-700">
+                  <button onclick="updateQty('${item.id}', -1)" class="w-6 h-6 rounded bg-white dark:bg-slate-700 text-slate-800 dark:text-white flex items-center justify-center font-bold text-xs">-</button>
+                  <span class="text-xs font-bold text-slate-900 dark:text-white px-1.5">${qty}</span>
+                  <button onclick="updateQty('${item.id}', 1)" class="w-6 h-6 rounded bg-brand-600 text-white flex items-center justify-center font-bold text-xs">+</button>
+                </div>
+              ` : `
+                <button onclick="updateQty('${item.id}', 1)" class="w-7 h-7 rounded-full bg-brand-600 text-white flex items-center justify-center hover:bg-brand-700 active:scale-95 transition-transform shadow-sm shadow-brand-500/30">
+                  <i data-lucide="plus" class="w-4 h-4"></i>
+                </button>
+              `}
+            </div>
           </div>
-          <button onclick="addToCart('${item.id}')" ${!item.inStock ? 'disabled' : ''} class="mt-3 w-full py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 ${item.inStock ? 'bg-orange-50 hover:bg-orange-600 text-orange-700 hover:text-white transition-all' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}">
-            <span>Add to Ticket</span>
-          </button>
-        </div>
-      `).join('');
+        `;
+        grid.appendChild(card);
+      });
+
+      updateFloatingTray();
+      lucide.createIcons();
     }
 
-    function filterCategory(cat) {
-      activeCategory = cat;
-      document.querySelectorAll('.cat-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.getAttribute('onclick').includes(cat));
-        btn.classList.toggle('bg-orange-600', btn.getAttribute('onclick').includes(cat));
-        btn.classList.toggle('text-white', btn.getAttribute('onclick').includes(cat));
-        btn.classList.toggle('bg-white', !btn.getAttribute('onclick').includes(cat));
-        btn.classList.toggle('text-slate-600', !btn.getAttribute('onclick').includes(cat));
-      });
+    function updateQty(itemId, delta) {
+      const menu = window.fasrSync.getMenu();
+      const target = menu.find(m => m.id === itemId);
+
+      // Block ordering if sold out!
+      if (target && target.inStock === false && delta > 0) {
+        window.fasrSound.playBeep();
+        window.showToast(`"${target.name}" is currently SOLD OUT.`, "warning");
+        return;
+      }
+
+      window.fasrSound.playBeep();
+      const current = cart[itemId] || 0;
+      const next = current + delta;
+      if (next <= 0) {
+        delete cart[itemId];
+      } else {
+        cart[itemId] = next;
+      }
       renderMenu();
     }
 
-    function addToCart(itemId) {
-      const items = window.fasrSync.getMenu();
-      const dish = items.find(i => i.id === itemId);
-      if (!dish || !dish.inStock) return;
-
-      cart[itemId] = (cart[itemId] || 0) + 1;
-      window.fasrSound.playBeep();
-      updateCartUI();
-    }
-
-    function updateCartUI() {
+    function updateFloatingTray() {
       const menu = window.fasrSync.getMenu();
-      const keys = Object.keys(cart);
-      let totalQty = 0;
-      let subtotal = 0;
+      let totalCount = 0;
+      let totalPrice = 0;
 
-      const list = document.getElementById('cart-items-list');
-      list.innerHTML = '';
-
-      keys.forEach(id => {
-        const item = menu.find(i => i.id === id);
-        const qty = cart[id];
-        if (item && qty > 0) {
-          totalQty += qty;
-          subtotal += item.price * qty;
-          list.innerHTML += `
-            <div class="pt-3 first:pt-0 flex items-center justify-between">
-              <div>
-                <p class="text-xs font-bold text-slate-900">${item.name}</p>
-                <p class="text-[11px] text-slate-400 font-semibold">Br ${item.price} each</p>
-              </div>
-              <div class="flex items-center gap-2">
-                <button onclick="adjustCart('${id}', -1)" class="w-6 h-6 rounded-lg bg-slate-100 flex items-center justify-center font-bold text-xs text-slate-600 hover:bg-slate-200">-</button>
-                <span class="text-xs font-bold text-slate-900 w-4 text-center">${qty}</span>
-                <button onclick="adjustCart('${id}', 1)" class="w-6 h-6 rounded-lg bg-slate-100 flex items-center justify-center font-bold text-xs text-slate-600 hover:bg-slate-200">+</button>
-              </div>
-            </div>
-          `;
+      Object.entries(cart).forEach(([id, qty]) => {
+        const item = menu.find(m => m.id === id);
+        if (item) {
+          totalCount += qty;
+          totalPrice += item.price * qty;
         }
       });
 
-      const tax = subtotal * 0.10;
-      const total = subtotal + tax;
+      document.getElementById('tray-item-count').textContent = `${totalCount} item${totalCount === 1 ? '' : 's'}`;
+      document.getElementById('tray-total-price').textContent = `Br ${totalPrice.toFixed(2)}`;
 
-      document.getElementById('cart-subtotal').innerText = `Br ${subtotal.toFixed(2)}`;
-      document.getElementById('cart-tax').innerText = `Br ${tax.toFixed(2)}`;
-      document.getElementById('cart-total').innerText = `Br ${total.toFixed(2)}`;
-      document.getElementById('cart-pill-total').innerText = `Br ${total.toFixed(2)}`;
-      document.getElementById('cart-pill-count').innerText = totalQty;
-
-      document.getElementById('cart-float-bar').classList.toggle('hidden', totalQty === 0);
-      if (totalQty === 0) toggleCartDrawer(false);
-    }
-
-    function adjustCart(id, delta) {
-      if (!cart[id]) return;
-      cart[id] += delta;
-      if (cart[id] <= 0) delete cart[id];
-      updateCartUI();
-    }
-
-    function toggleCartDrawer(show) {
-      document.getElementById('cart-drawer').classList.toggle('hidden', !show);
-    }
-
-    async function submitOrder() {
-      const itemsPayload = Object.keys(cart).map(id => ({
-        id,
-        quantity: cart[id]
-      }));
-
-      const submitBtn = document.getElementById('submit-order-btn');
-      submitBtn.disabled = true;
-      submitBtn.innerText = 'Transmitting to Kitchen...';
-
-      try {
-        const order = await window.fasrSync.createOrder({
-          tableNumber: currentTable,
-          customerName: 'Dine In Diner',
-          items: itemsPayload
-        });
-
-        cart = {};
-        updateCartUI();
-        toggleCartDrawer(false);
-
-        trackedOrderId = order.id;
-        localStorage.setItem('fasr_active_order_id', order.id);
-        window.fasrSound.playCashierDing();
-        window.showToast("Order placed successfully!", "success");
-        checkActiveOrder();
-      } catch (e) {
-        window.showToast(e.message, "error");
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.innerText = 'Confirm & Send to Kitchen';
+      const placeBtn = document.getElementById('place-order-btn');
+      if (totalCount === 0) {
+        placeBtn.classList.add('opacity-50', 'pointer-events-none');
+      } else {
+        placeBtn.classList.remove('opacity-50', 'pointer-events-none');
       }
     }
 
-    function checkActiveOrder() {
-      if (!trackedOrderId) return;
-      const orders = window.fasrSync.getOrders();
-      const order = orders.find(o => o.id === trackedOrderId);
-      if (!order) return;
+    function placeCustomerOrder() {
+      const tableNumber = document.getElementById('table-input').value.trim() || 'Table 4';
+      const customerName = document.getElementById('customer-name-input').value.trim() || 'Guest Diner';
+      const menu = window.fasrSync.getMenu();
 
-      const banner = document.getElementById('live-tracker-banner');
-      banner.classList.remove('hidden');
-      document.getElementById('tracker-ticket').innerText = `TICKET ${order.ticketNumber}`;
+      const items = [];
+      let subtotal = 0;
 
-      const statusMap = {
-        kitchen: "In Kitchen: Food is being cooked",
-        ready: "Ready for Pickup at the counter!",
-        served: "Order Complete! Enjoy your meal.",
-        cancelled: "Order cancelled."
-      };
-      document.getElementById('tracker-status').innerText = statusMap[order.status] || order.status;
+      Object.entries(cart).forEach(([id, qty]) => {
+        const item = menu.find(m => m.id === id);
+        if (item) {
+          items.push({
+            id: item.id,
+            name: item.name,
+            price: item.price,
+            quantity: qty
+          });
+          subtotal += item.price * qty;
+        }
+      });
+
+      if (items.length === 0) {
+        window.showToast("Please add dishes to your order first!", "warning");
+        return;
+      }
+
+      const tax = Number((subtotal * 0.10).toFixed(2));
+      const total = Number((subtotal + tax).toFixed(2));
+
+      // Call sync engine
+      const created = window.fasrSync.createOrder({
+        tableNumber,
+        customerName,
+        items,
+        subtotal,
+        tax,
+        total,
+        status: 'kitchen'
+      });
+
+      activeOrder = created;
+      localStorage.setItem('fasr_active_order_id', created.id);
+      cart = {};
+      window.fasrSound.playCashierDing();
+      window.showToast(`Order ${created.ticketNumber} placed successfully!`, "success");
+
+      showTrackerView();
     }
 
-    function openTrackerModal() {
-      const orders = window.fasrSync.getOrders();
-      const order = orders.find(o => o.id === trackedOrderId);
-      if (!order) return;
+    function showTrackerView() {
+      document.getElementById('menu-view').classList.add('hidden');
+      document.getElementById('floating-cart-tray').classList.add('hidden');
+      document.getElementById('tracker-view').classList.remove('hidden');
+      document.getElementById('header-tracker-btn').classList.remove('hidden');
+      renderTracker();
+    }
 
-      window.showInPageModal({
-        title: `Order Status: ${order.ticketNumber}`,
-        content: `
-          <div class="space-y-3">
-            <p class="font-bold text-sm text-orange-600 uppercase tracking-wider">${order.status.toUpperCase()}</p>
-            <div class="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl space-y-1">
-              ${order.items.map(i => `<div class="flex justify-between text-xs"><span>${i.quantity}x ${i.name}</span><span class="font-bold">Br ${(i.price * i.quantity).toFixed(2)}</span></div>`).join('')}
-            </div>
-            <div class="flex justify-between font-extrabold text-sm pt-1">
-              <span>Total Bill</span>
-              <span>Br ${order.total.toFixed(2)}</span>
-            </div>
-          </div>
-        `,
-        confirmText: "Close"
+    function showMenuView() {
+      document.getElementById('tracker-view').classList.add('hidden');
+      document.getElementById('menu-view').classList.remove('hidden');
+      document.getElementById('floating-cart-tray').classList.remove('hidden');
+      renderMenu();
+    }
+
+    function renderTracker() {
+      if (!activeOrder) return;
+
+      document.getElementById('tracker-ticket-number').textContent = activeOrder.ticketNumber;
+      document.getElementById('tracker-table-number').textContent = `${activeOrder.tableNumber} • ${activeOrder.customerName || 'Dine In'}`;
+
+      // Progress bar fill & nodes
+      const fill = document.getElementById('tracker-progress-fill');
+      const node1 = document.getElementById('step-node-1');
+      const node2 = document.getElementById('step-node-2');
+      const node3 = document.getElementById('step-node-3');
+      const statusBox = document.getElementById('tracker-status-box');
+      const statusText = document.getElementById('tracker-status-text');
+
+      if (activeOrder.status === 'kitchen') {
+        fill.style.width = '50%';
+        node2.className = 'w-11 h-11 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-md shadow-amber-500/20 text-xs font-bold animate-pulse';
+        node3.className = 'w-11 h-11 rounded-2xl bg-slate-200 dark:bg-slate-800 text-slate-400 flex items-center justify-center text-xs font-bold';
+        statusBox.className = 'mt-5 p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 font-bold text-xs flex items-center justify-center gap-2';
+        statusText.textContent = 'Your order is currently being cooked in the kitchen...';
+      } else if (activeOrder.status === 'ready' || activeOrder.status === 'served') {
+        fill.style.width = '100%';
+        node2.className = 'w-11 h-11 rounded-2xl bg-brand-600 text-white flex items-center justify-center text-xs font-bold';
+        node3.className = 'w-11 h-11 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-lg shadow-emerald-500/30 text-xs font-bold animate-bounce';
+        statusBox.className = 'mt-5 p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-900/40 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-200 font-extrabold text-sm flex items-center justify-center gap-2';
+        statusText.textContent = '🔔 YOUR ORDER IS READY! Serving to your table now!';
+      }
+
+      // Items list
+      const itemsContainer = document.getElementById('tracker-items-list');
+      itemsContainer.innerHTML = '';
+      activeOrder.items.forEach(i => {
+        const row = document.createElement('div');
+        row.className = 'py-2 flex justify-between';
+        row.innerHTML = `
+          <span class="font-bold text-slate-800 dark:text-slate-200">${i.quantity}x ${i.name}</span>
+          <span class="font-extrabold text-slate-900 dark:text-white">Br ${(i.price * i.quantity).toFixed(2)}</span>
+        `;
+        itemsContainer.appendChild(row);
+      });
+
+      document.getElementById('tracker-total-amount').textContent = `Br ${activeOrder.total.toFixed(2)}`;
+      lucide.createIcons();
+    }
+
+    function setRating(rating) {
+      window.fasrSound.playBeep();
+      currentRating = rating;
+      const stars = document.querySelectorAll('.star-btn');
+      stars.forEach((btn, index) => {
+        const icon = btn.querySelector('svg') || btn.querySelector('i');
+        if (index < rating) {
+          btn.className = 'star-btn p-2 text-amber-400 hover:scale-125 transition-transform';
+        } else {
+          btn.className = 'star-btn p-2 text-slate-300 dark:text-slate-700 hover:scale-125 transition-transform';
+        }
       });
     }
 
-    function openTablePicker() {
-      const input = prompt("Enter Table Number (e.g., 04, 12, Patio):", currentTable.replace('Table ', ''));
-      if (input) {
-        currentTable = `Table ${input.trim()}`;
-        document.getElementById('active-table-text').innerText = currentTable;
-        document.getElementById('cart-table-info').innerText = currentTable;
+    function submitCustomerReview() {
+      if (!activeOrder) return;
+      const btn = document.getElementById('submit-review-btn');
+      if (btn && btn.disabled) return;
+
+      const comment = document.getElementById('review-comment').value.trim();
+
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i><span>Feedback Sent!</span>';
+        btn.className = 'w-full py-3 bg-emerald-600 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-not-allowed opacity-90';
       }
+
+      window.fasrSync.createReview({
+        orderNumber: activeOrder.ticketNumber,
+        tableNumber: activeOrder.tableNumber,
+        customerName: activeOrder.customerName || 'Customer',
+        rating: currentRating,
+        comment: comment || 'Delicious meal, fast and friendly service!'
+      });
+
+      window.fasrSound.playCashierDing();
+      window.showToast("Thank you for your rating! Feedback received.", "success");
+      document.getElementById('review-comment').value = '';
+      lucide.createIcons();
     }
+
+    // Launch
+    window.addEventListener('DOMContentLoaded', init);
   </script>
 </body>
 </html>
