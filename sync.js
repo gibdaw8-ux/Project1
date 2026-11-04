@@ -654,4 +654,254 @@ class FasrSyncEngine {
 
   // Data Setters / Mutators
   saveMenu(newMenu) {
-    localStorage.setItem(STORAGE_KEYS.MENU, JSON.stringify(new
+    localStorage.setItem(STORAGE_KEYS.MENU, JSON.stringify(newMenu));
+    this.publish('MENU_CHANGED', newMenu);
+  }
+
+  createOrder(orderData) {
+    const orders = this.getOrders();
+    const newOrder = {
+      ...orderData,
+      id: `ord-${Date.now()}`,
+      ticketNumber: `#FASR-${Math.floor(100 + Math.random() * 900)}`,
+      createdAt: new Date().toISOString()
+    };
+    orders.unshift(newOrder);
+    localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
+    this.publish('ORDER_CREATED', newOrder);
+    return newOrder;
+  }
+
+  updateOrderStatus(orderId, status) {
+    const orders = this.getOrders();
+    const target = orders.find(o => o.id === orderId);
+    if (target) {
+      target.status = status;
+      localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
+      this.publish('ORDER_STATUS_CHANGED', { orderId, status });
+    }
+  }
+
+  setManagerLock(isLocked) {
+    const auth = this.getCashierAuth();
+    auth.isLocked = isLocked;
+    auth.isManagerLocked = isLocked;
+    if (!isLocked) auth.lastUnlockedAt = new Date().toISOString();
+    localStorage.setItem(STORAGE_KEYS.CASHIER_AUTH, JSON.stringify(auth));
+    this.publish('CASHIER_AUTH_CHANGED', auth);
+  }
+
+  setCashierLock(isLocked, isManagerOverride = false) {
+    const auth = this.getCashierAuth();
+    auth.isLocked = isLocked;
+    if (isManagerOverride) {
+      auth.isManagerLocked = isLocked;
+    } else if (!isLocked) {
+      auth.isManagerLocked = false;
+    }
+    if (!isLocked) auth.lastUnlockedAt = new Date().toISOString();
+    localStorage.setItem(STORAGE_KEYS.CASHIER_AUTH, JSON.stringify(auth));
+    this.publish('CASHIER_AUTH_CHANGED', auth);
+  }
+
+  setCashierPin(newPin) {
+    const auth = this.getCashierAuth();
+    auth.pin = newPin;
+    localStorage.setItem(STORAGE_KEYS.CASHIER_AUTH, JSON.stringify(auth));
+    this.publish('CASHIER_AUTH_CHANGED', auth);
+
+    // Also update default staff-1 pin
+    const list = this.getStaffList();
+    if (list[0]) {
+      list[0].pin = newPin;
+      this.saveStaffList(list);
+    }
+  }
+
+  createReview(reviewData) {
+    const reviews = this.getReviews();
+    const newReview = {
+      ...reviewData,
+      id: `rev-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      timestamp: new Date().toISOString()
+    };
+
+    // Prevent duplicate submission
+    const alreadyExists = reviews.some(r => 
+      r.orderNumber === newReview.orderNumber &&
+      r.comment === newReview.comment &&
+      Math.abs(new Date(r.timestamp).getTime() - new Date(newReview.timestamp).getTime()) < 10000
+    );
+
+    if (!alreadyExists) {
+      reviews.unshift(newReview);
+      localStorage.setItem(STORAGE_KEYS.REVIEWS, JSON.stringify(reviews));
+      this.publish('REVIEW_CREATED', newReview);
+    }
+    return newReview;
+  }
+}
+
+// Audio synthesizer for alarms and notifications
+class SoundFx {
+  constructor() {
+    this.ctx = null;
+  }
+
+  init() {
+    if (!this.ctx && typeof window !== 'undefined') {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) this.ctx = new AudioCtx();
+    }
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume();
+    }
+  }
+
+  playBeep() {
+    try {
+      this.init();
+      if (!this.ctx) return;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(540, this.ctx.currentTime);
+      gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.05);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start();
+      osc.stop(this.ctx.currentTime + 0.06);
+    } catch (e) {}
+  }
+
+  playReadyAlarm() {
+    try {
+      this.init();
+      if (!this.ctx) return;
+      const notes = [587.33, 739.99, 880.00, 1174.66, 880.00, 1174.66];
+      const now = this.ctx.currentTime;
+      notes.forEach((freq, idx) => {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.12);
+        gain.gain.setValueAtTime(0.2, now + idx * 0.12);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.12 + 0.25);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now + idx * 0.12);
+        osc.stop(now + idx * 0.12 + 0.3);
+      });
+    } catch (e) {}
+  }
+
+  playCashierDing() {
+    try {
+      this.init();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, now);
+      osc.frequency.setValueAtTime(1320, now + 0.08);
+      gain.gain.setValueAtTime(0.15, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start();
+      osc.stop(now + 0.42);
+    } catch (e) {}
+  }
+}
+
+// Global UI helper for Toast and In-Page Modal
+function showToast(message, type = 'info', duration = 3500) {
+  let container = document.getElementById('toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toast-container';
+    container.className = 'fixed top-5 right-5 z-[99999] flex flex-col gap-2.5 pointer-events-none max-w-sm w-full px-4';
+    document.body.appendChild(container);
+  }
+
+  const toast = document.createElement('div');
+  const bgClasses = type === 'success' 
+    ? 'bg-emerald-600 text-white' 
+    : type === 'error' 
+      ? 'bg-rose-600 text-white' 
+      : type === 'warning'
+        ? 'bg-amber-600 text-white'
+        : 'bg-slate-900 text-white dark:bg-slate-800 dark:border dark:border-slate-700';
+
+  toast.className = `${bgClasses} pointer-events-auto p-4 rounded-2xl shadow-xl flex items-center justify-between gap-3 text-xs font-bold transition-all transform duration-300 translate-y-[-10px] opacity-0`;
+  
+  toast.innerHTML = `
+    <div class="flex items-center gap-2.5">
+      <span>${message}</span>
+    </div>
+    <button class="text-white/70 hover:text-white p-1" onclick="this.parentElement.remove()">✕</button>
+  `;
+
+  container.appendChild(toast);
+  requestAnimationFrame(() => {
+    toast.classList.remove('translate-y-[-10px]', 'opacity-0');
+  });
+
+  setTimeout(() => {
+    toast.classList.add('opacity-0', 'scale-95');
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+}
+
+function showInPageModal({ title, content, confirmText = 'Confirm', cancelText = 'Cancel', onConfirm, onCancel }) {
+  const modalWrapper = document.createElement('div');
+  modalWrapper.className = 'fixed inset-0 bg-black/60 backdrop-blur-xs z-[99998] flex items-center justify-center p-4 transition-opacity';
+  
+  modalWrapper.innerHTML = `
+    <div class="bg-white dark:bg-slate-900 dark:text-white dark:border dark:border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl flex flex-col gap-4 transform transition-transform scale-95 animate-in">
+      <div class="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+        <h3 class="text-base font-extrabold text-slate-900 dark:text-white">${title}</h3>
+        <button class="modal-close text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">✕</button>
+      </div>
+      <div class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed modal-content">
+        ${content}
+      </div>
+      <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
+        ${cancelText ? `<button class="modal-cancel px-4 py-2.5 text-xs font-bold rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition-colors">${cancelText}</button>` : ''}
+        <button class="modal-confirm px-4 py-2.5 text-xs font-bold rounded-xl bg-brand-600 hover:bg-brand-700 text-white transition-colors shadow-sm">${confirmText}</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modalWrapper);
+
+  const close = () => {
+    modalWrapper.remove();
+  };
+
+  modalWrapper.querySelector('.modal-close').onclick = () => {
+    if (onCancel) onCancel();
+    close();
+  };
+
+  const cancelBtn = modalWrapper.querySelector('.modal-cancel');
+  if (cancelBtn) {
+    cancelBtn.onclick = () => {
+      if (onCancel) onCancel();
+      close();
+    };
+  }
+
+  modalWrapper.querySelector('.modal-confirm').onclick = () => {
+    if (onConfirm) onConfirm();
+    close();
+  };
+}
+
+// Global instance export
+window.fasrSync = new FasrSyncEngine();
+window.fasrSound = new SoundFx();
+window.showToast = showToast;
+window.showInPageModal = showInPageModal;
