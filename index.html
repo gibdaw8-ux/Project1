@@ -35,19 +35,7 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
-  <style>
-    body {
-      font-family: 'Plus Jakarta Sans', sans-serif;
-    }
-    /* Hide scrollbar for category pills */
-    .no-scrollbar::-webkit-scrollbar {
-      display: none;
-    }
-    .no-scrollbar {
-      -ms-overflow-style: none;
-      scrollbar-width: none;
-    }
-  </style>
+  <style>body{font-family:Plus Jakarta Sans,sans-serif}.no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}</style>
 </head>
 <body class="bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 min-h-screen pb-32 transition-colors duration-200">
 
@@ -270,6 +258,13 @@
 
   <!-- SCRIPT LOGIC -->
   <script>
+  const SUPABASE_URL = 'https://zxjwllvykzxmdvkcdwix.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_Ch6lIX6ZSbulVuA7pM6eNg_x8klP4hO';
+
+const supabaseClient = window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_ANON_KEY
+);
     // State
     let cart = {}; // { [itemId]: quantity }
     let currentCategory = 'all';
